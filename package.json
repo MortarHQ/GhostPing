@@ -19,6 +19,7 @@
     "varint": "^6.0.0"
   },
   "devDependencies": {
+    "@types/js-beautify": "^1.14.3",
     "@types/node": "^25.2.0",
     "@types/varint": "^6.0.3",
     "tsx": "^4.21.0",

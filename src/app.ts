@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { pathToFileURL } from "url";
-import beautify from "js-beautify";
+import beautifyJs from "js-beautify";
 import { IncomingMessage, ServerResponse } from "http";
 import log from "@utils/logger";
 import { config } from "./config/config_parser";
@@ -12,14 +12,17 @@ import { version2Protocol } from "@utils/protocol-utils";
 import { getServerIcon } from "@utils/image-utils";
 
 type JsonRecord = Record<string, unknown>;
-type OffsetFunction = (origin: ServerStatus, servers: ServerStatus[]) => unknown;
+type OffsetFunction = (
+  origin: ServerStatus,
+  servers: ServerStatus[],
+) => unknown;
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 const OFFSET_FILE = path.join(process.cwd(), "data", "offset.fn.js");
 let offsetFunction: { source: string; fn: OffsetFunction } | null = null;
 let offsetInitPromise: Promise<void> | null = null;
 const clientsList: Client[] = config.server_list.map(
-  (server) => new Client(server.host, server.port, server.version as VERSION)
+  (server) => new Client(server.host, server.port, server.version as VERSION),
 );
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -45,7 +48,7 @@ const DEFAULT_OFFSET_MODULE_TEMPLATE: OffsetFunction = (origin, servers) => {
       acc.max += max;
       return acc;
     },
-    { online: 0, max: 0 }
+    { online: 0, max: 0 },
   );
 
   return {
@@ -70,7 +73,7 @@ const EXPORT_DEFAULT_RE = /\bexport\s+default\b/;
 const MODULE_SYNTAX_RE = /\bimport\b|\bexport\b/;
 const DEFAULT_OFFSET_MODULE_SOURCE = (() => {
   const rawModule = normalizeOffsetModuleSource(
-    DEFAULT_OFFSET_MODULE_TEMPLATE.toString()
+    DEFAULT_OFFSET_MODULE_TEMPLATE.toString(),
   );
   const formatted = formatModuleSource(rawModule);
   return formatted.trim() ? formatted : rawModule;
@@ -78,7 +81,7 @@ const DEFAULT_OFFSET_MODULE_SOURCE = (() => {
 
 function normalizeOffsetModuleSource(
   source: string,
-  options?: { requireExport?: boolean }
+  options?: { requireExport?: boolean },
 ) {
   const trimmed = source.trim();
   if (!trimmed) {
@@ -103,16 +106,13 @@ function ensureTrailingSemicolon(source: string) {
 
 function formatModuleSource(source: string) {
   try {
-    const formatter = (beautify as { js?: (code: string, opts?: unknown) => string }).js;
-    if (typeof formatter === "function") {
-      return formatter(source, {
-        indent_size: 2,
-        end_with_newline: true,
-        unescape_strings: true,
-      });
-    }
+    return beautifyJs(source, {
+      indent_size: 2,
+      end_with_newline: true,
+      unescape_strings: true,
+    });
   } catch (error) {
-    log.warn("格式化偏移模块失败，已使用原始内容:", error);
+    log.warn({ err: error }, "格式化偏移模块失败，已使用原始内容");
   }
   return source;
 }
@@ -183,7 +183,7 @@ function getContentType(filePath: string) {
 async function serveStatic(
   req: IncomingMessage,
   res: ServerResponse,
-  pathname: string
+  pathname: string,
 ) {
   let targetPath = pathname;
   if (targetPath === "/") {
@@ -222,7 +222,7 @@ async function serveStatic(
 
 function buildOriginInfo(
   servers: ServerStatus[],
-  protocolVersion: number
+  protocolVersion: number,
 ): ServerStatus {
   const sample: { name: String; id: String }[] = [];
   for (const server of servers) {
@@ -329,10 +329,7 @@ async function loadOffsetModuleFromFile(filePath: string) {
 
 async function validateOffsetFunction(fn: OffsetFunction) {
   const sampleServers = await getServerStatuses();
-  const originInfo = buildOriginInfo(
-    sampleServers,
-    version2Protocol("1.16.5")
-  );
+  const originInfo = buildOriginInfo(sampleServers, version2Protocol("1.16.5"));
   const result = fn(originInfo, sampleServers);
   const merged = mergeOverride(originInfo, result);
   if (!isValidServerStatus(merged)) {
@@ -348,14 +345,14 @@ function applyOffset(origin: ServerStatus, servers: ServerStatus[]) {
     const result = offsetFunction.fn(origin, servers);
     return mergeOverride(origin, result);
   } catch (error) {
-    log.error("偏移函数执行失败:", error);
+    log.error({ err: error }, "偏移函数执行失败");
     return origin;
   }
 }
 
 async function applyAndPersistOffset(
   source: string,
-  options?: { persist?: boolean; requireExport?: boolean }
+  options?: { persist?: boolean; requireExport?: boolean },
 ) {
   const persist = options?.persist !== false;
   const normalized = normalizeOffsetModuleSource(source, {
@@ -421,8 +418,8 @@ async function initOffsetFunction() {
       });
     } catch (error) {
       log.warn(
-        "偏移模块初始化失败，将使用默认模块（未覆盖 offset.fn.js）:",
-        error
+        { err: error },
+        "偏移模块初始化失败，将使用默认模块（未覆盖 offset.fn.js）",
       );
       await applyAndPersistOffset(DEFAULT_OFFSET_MODULE_SOURCE, {
         persist: false,
@@ -438,7 +435,7 @@ async function getServerStatuses(): Promise<ServerStatus[]> {
     client.getServerStatus().catch((err) => {
       log.error(`服务器状态查询错误: ${err}`);
       return null;
-    })
+    }),
   );
 
   const results = await Promise.all(promises);
@@ -450,7 +447,7 @@ async function handleServer(req: IncomingMessage, res: ServerResponse) {
     const data = await getServerStatuses();
     sendJson(res, 200, data);
   } catch (error) {
-    log.error("处理服务器状态请求时出错:", error);
+    log.error({ err: error }, "处理服务器状态请求时出错");
     sendJson(res, 500, { error: "获取服务器状态时出错" });
   }
 }
@@ -458,11 +455,11 @@ async function handleServer(req: IncomingMessage, res: ServerResponse) {
 async function handleServerList(
   req: IncomingMessage,
   res: ServerResponse,
-  url: URL
+  url: URL,
 ) {
   let protocolVersion = Number.parseInt(
     url.searchParams.get("protocolVersion") || "",
-    10
+    10,
   );
   if (!protocolVersion) {
     protocolVersion = version2Protocol("1.16.5");
@@ -477,7 +474,7 @@ async function handleServerList(
 
 async function handleOffsetGet(res: ServerResponse) {
   await initOffsetFunction();
-  sendJson(res, 200, { "__fn__": offsetFunction?.source || "" });
+  sendJson(res, 200, { __fn__: offsetFunction?.source || "" });
 }
 
 async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
@@ -508,9 +505,9 @@ async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
 async function handleOffsetTestPut(res: ServerResponse) {
   try {
     await applyAndPersistOffset(DEFAULT_OFFSET_MODULE_SOURCE);
-    sendJson(res, 200, { ok: true, "__fn__": DEFAULT_OFFSET_MODULE_SOURCE });
+    sendJson(res, 200, { ok: true, __fn__: DEFAULT_OFFSET_MODULE_SOURCE });
   } catch (error) {
-    log.error("偏移函数测试设置失败:", error);
+    log.error({ err: error }, "偏移函数测试设置失败");
     sendJson(res, 500, { error: "偏移函数测试设置失败" });
   }
 }
@@ -522,7 +519,9 @@ function handleHealth(res: ServerResponse) {
   let totalTick = 0;
 
   for (const cpu of cpus) {
-    for (const type in cpu.times) {
+    for (const type of Object.keys(cpu.times) as Array<
+      keyof typeof cpu.times
+    >) {
       totalTick += cpu.times[type];
     }
     totalIdle += cpu.times.idle;
@@ -552,7 +551,7 @@ export async function initOffsetStorage() {
 
 export async function handleHttpRequest(
   req: IncomingMessage,
-  res: ServerResponse
+  res: ServerResponse,
 ) {
   setCorsHeaders(req, res);
 
@@ -598,7 +597,7 @@ export async function handleHttpRequest(
 
     sendText(res, 405, "Method Not Allowed");
   } catch (error) {
-    log.error("HTTP handler error:", error);
+    log.error({ err: error }, "HTTP handler error");
     sendJson(res, 500, { error: "Internal Server Error" });
   }
 }

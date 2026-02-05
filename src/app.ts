@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { pathToFileURL } from "url";
+import beautify from "js-beautify";
 import { IncomingMessage, ServerResponse } from "http";
 import log from "@utils/logger";
 import { config } from "./config/config_parser";
@@ -33,7 +35,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const DEFAULT_OFFSET_FUNCTION: OffsetFunction = (origin, servers) => {
+const DEFAULT_OFFSET_MODULE_TEMPLATE: OffsetFunction = (origin, servers) => {
   const totals = servers.reduce(
     (acc, server) => {
       const players = server?.players || {};
@@ -64,7 +66,56 @@ const DEFAULT_OFFSET_FUNCTION: OffsetFunction = (origin, servers) => {
     ],
   };
 };
-const DEFAULT_OFFSET_FUNCTION_SOURCE = DEFAULT_OFFSET_FUNCTION.toString();
+const EXPORT_DEFAULT_RE = /\bexport\s+default\b/;
+const MODULE_SYNTAX_RE = /\bimport\b|\bexport\b/;
+const DEFAULT_OFFSET_MODULE_SOURCE = (() => {
+  const rawModule = normalizeOffsetModuleSource(
+    DEFAULT_OFFSET_MODULE_TEMPLATE.toString()
+  );
+  const formatted = formatModuleSource(rawModule);
+  return formatted.trim() ? formatted : rawModule;
+})();
+
+function normalizeOffsetModuleSource(
+  source: string,
+  options?: { requireExport?: boolean }
+) {
+  const trimmed = source.trim();
+  if (!trimmed) {
+    throw new Error("偏移函数不能为空");
+  }
+  const hasExport = EXPORT_DEFAULT_RE.test(trimmed);
+  const hasModuleSyntax = MODULE_SYNTAX_RE.test(trimmed);
+  if (options?.requireExport && !hasExport) {
+    throw new Error("偏移模块必须使用 export default 导出函数");
+  }
+  if (!hasExport && hasModuleSyntax) {
+    throw new Error("偏移模块必须包含 export default");
+  }
+  const normalized = hasExport ? trimmed : `export default ${trimmed}`;
+  return ensureTrailingSemicolon(normalized);
+}
+
+function ensureTrailingSemicolon(source: string) {
+  const trimmed = source.trim();
+  return trimmed.endsWith(";") ? trimmed : `${trimmed};`;
+}
+
+function formatModuleSource(source: string) {
+  try {
+    const formatter = (beautify as { js?: (code: string, opts?: unknown) => string }).js;
+    if (typeof formatter === "function") {
+      return formatter(source, {
+        indent_size: 2,
+        end_with_newline: true,
+        unescape_strings: true,
+      });
+    }
+  } catch (error) {
+    log.warn("格式化偏移模块失败，已使用原始内容:", error);
+  }
+  return source;
+}
 
 function setCorsHeaders(req: IncomingMessage, res: ServerResponse) {
   const { origin, Origin, referer, Referer } = req.headers;
@@ -266,27 +317,27 @@ function isValidServerStatus(value: unknown) {
   return "description" in value;
 }
 
-function compileOffsetFunction(source: string): OffsetFunction {
-  const trimmed = source.trim().replace(/;+\s*$/, "");
-  const attempts = [
-    () =>
-      new Function(
-        "origin",
-        "servers",
-        `return (${trimmed})(origin, servers);`
-      ) as OffsetFunction,
-    () => new Function("origin", "servers", trimmed) as OffsetFunction,
-  ];
-
-  let lastError: unknown;
-  for (const attempt of attempts) {
-    try {
-      return attempt();
-    } catch (error) {
-      lastError = error;
-    }
+async function loadOffsetModuleFromFile(filePath: string) {
+  const fileUrl = `${pathToFileURL(filePath).href}?t=${Date.now()}`;
+  const mod = await import(fileUrl);
+  const fn = mod?.default;
+  if (typeof fn !== "function") {
+    throw new Error("偏移模块必须 export default 一个函数");
   }
-  throw lastError;
+  return fn as OffsetFunction;
+}
+
+async function validateOffsetFunction(fn: OffsetFunction) {
+  const sampleServers = await getServerStatuses();
+  const originInfo = buildOriginInfo(
+    sampleServers,
+    version2Protocol("1.16.5")
+  );
+  const result = fn(originInfo, sampleServers);
+  const merged = mergeOverride(originInfo, result);
+  if (!isValidServerStatus(merged)) {
+    throw new Error("偏移函数返回格式不正确");
+  }
 }
 
 function applyOffset(origin: ServerStatus, servers: ServerStatus[]) {
@@ -304,24 +355,44 @@ function applyOffset(origin: ServerStatus, servers: ServerStatus[]) {
 
 async function applyAndPersistOffset(
   source: string,
-  options?: { persist?: boolean }
+  options?: { persist?: boolean; requireExport?: boolean }
 ) {
-  const fn = compileOffsetFunction(source);
-  const sampleServers = await getServerStatuses();
-  const originInfo = buildOriginInfo(
-    sampleServers,
-    version2Protocol("1.16.5")
-  );
-  const result = fn(originInfo, sampleServers);
-  const merged = mergeOverride(originInfo, result);
-  if (!isValidServerStatus(merged)) {
-    throw new Error("偏移函数返回格式不正确");
-  }
-  offsetFunction = { source, fn };
+  const persist = options?.persist !== false;
+  const normalized = normalizeOffsetModuleSource(source, {
+    requireExport: options?.requireExport,
+  });
+  const tempPath = path.join(path.dirname(OFFSET_FILE), ".offset.fn.temp.js");
+  const targetPath = persist ? OFFSET_FILE : tempPath;
+  let previousSource: string | null = null;
 
-  if (options?.persist !== false) {
-    await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
-    await fs.promises.writeFile(OFFSET_FILE, source, "utf8");
+  if (persist) {
+    try {
+      previousSource = await fs.promises.readFile(OFFSET_FILE, "utf8");
+    } catch {
+      previousSource = null;
+    }
+  }
+
+  await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
+  await fs.promises.writeFile(targetPath, normalized, "utf8");
+
+  try {
+    const fn = await loadOffsetModuleFromFile(targetPath);
+    await validateOffsetFunction(fn);
+    offsetFunction = { source: normalized, fn };
+  } catch (error) {
+    if (persist) {
+      if (previousSource !== null) {
+        await fs.promises.writeFile(OFFSET_FILE, previousSource, "utf8");
+      } else {
+        await fs.promises.unlink(OFFSET_FILE).catch(() => {});
+      }
+    }
+    throw error;
+  } finally {
+    if (!persist) {
+      await fs.promises.unlink(tempPath).catch(() => {});
+    }
   }
 }
 
@@ -339,16 +410,23 @@ async function initOffsetFunction() {
     }
 
     if (!source || !source.trim()) {
-      source = DEFAULT_OFFSET_FUNCTION_SOURCE;
-      await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
-      await fs.promises.writeFile(OFFSET_FILE, source, "utf8");
+      await applyAndPersistOffset(DEFAULT_OFFSET_MODULE_SOURCE);
+      return;
     }
 
     try {
-      await applyAndPersistOffset(source, { persist: false });
+      await applyAndPersistOffset(source, {
+        persist: false,
+        requireExport: true,
+      });
     } catch (error) {
-      log.error("偏移函数初始化失败，已回退到默认函数:", error);
-      await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION_SOURCE);
+      log.warn(
+        "偏移模块初始化失败，将使用默认模块（未覆盖 offset.fn.js）:",
+        error
+      );
+      await applyAndPersistOffset(DEFAULT_OFFSET_MODULE_SOURCE, {
+        persist: false,
+      });
     }
   })();
 
@@ -422,14 +500,15 @@ async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
     res.statusCode = 200;
     res.end();
   } catch (err) {
-    sendJson(res, 400, { error: "Invalid JSON payload" });
+    const message = err instanceof Error ? err.message : "Invalid JSON payload";
+    sendJson(res, 400, { error: message });
   }
 }
 
 async function handleOffsetTestPut(res: ServerResponse) {
   try {
-    await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION_SOURCE);
-    sendJson(res, 200, { ok: true, "__fn__": DEFAULT_OFFSET_FUNCTION_SOURCE });
+    await applyAndPersistOffset(DEFAULT_OFFSET_MODULE_SOURCE);
+    sendJson(res, 200, { ok: true, "__fn__": DEFAULT_OFFSET_MODULE_SOURCE });
   } catch (error) {
     log.error("偏移函数测试设置失败:", error);
     sendJson(res, 500, { error: "偏移函数测试设置失败" });

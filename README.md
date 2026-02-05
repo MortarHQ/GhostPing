@@ -134,23 +134,24 @@ logFormat = "combined"
 
 ## 偏移函数（函数模式）
 
-偏移函数存放在 `data/offset.fn.js`，服务端启动时会自动读取，不存在则写入默认模板。  
-函数签名：
+偏移函数存放在 `data/offset.fn.js`，这是一个 **ESM 模块文件**。  
+服务端启动时会自动读取，不存在则写入默认模板。  
+要求：必须 `export default` 一个函数。
 
 ```js
-(origin, servers) => {
+export default (origin, servers) => {
   // origin: 聚合后的基准对象（已包含版本、玩家、描述、图标等）
   // servers: server_list 中成功获取的状态列表
   return {
     // 返回的字段会合并到 origin 中
   };
-}
+};
 ```
 
 一个示例：
 
 ```js
-(origin, servers) => {
+export default (origin, servers) => {
   const totals = servers.reduce(
     (acc, s) => {
       const online = typeof s?.players?.online === "number" ? s.players.online : 0;
@@ -173,7 +174,7 @@ logFormat = "combined"
       { text: `\\n聚合 ${servers.length} 个服务器`, color: "gray" },
     ],
   };
-}
+};
 ```
 
 服务端会用模拟的 server_list 结果验证函数返回值结构，校验通过后才会生效并写入 `data/offset.fn.js`。

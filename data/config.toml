@@ -1,31 +1,17 @@
 [[server_list]]
 host = "fun.mortar.top"
-port = "24445"
+port = "25565"
 version = "1.16.5"
 
-[[server_list]]
-host = "fun.mortar.top"
-port = "24446"
-version = "1.19.2"
-
-[[server_list]]
-host = "fun.mortar.top"
-port = "24447"
-version = "1.18.2"
-
-[[server_list]]
-host = "fun.mortar.top"
-port = "25565"
-version = "1.12.2"
-
-[[server_list]]
-host = "bgp.mortar.top"
-port = "25566"
-version = "1.20.4"
+# 更多服务器列表按下面格式添加即可
+# [[server_list]]
+# host = "minecraft.net"
+# port = "25565"
+# version = "1.20.4"
 
 [server]
 port = "25565"
-web_port = "25565"
+web_port = "24680"
 logLevel = "info"
 logFormat = "combined"
 host = "0.0.0.0"

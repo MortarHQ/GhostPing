@@ -13,7 +13,9 @@ type JsonRecord = Record<string, unknown>;
 type OffsetFunction = (origin: ServerStatus, servers: ServerStatus[]) => unknown;
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
+const OFFSET_FILE = path.join(process.cwd(), "data", "offset.fn.js");
 let offsetFunction: { source: string; fn: OffsetFunction } | null = null;
+let offsetInitPromise: Promise<void> | null = null;
 const clientsList: Client[] = config.server_list.map(
   (server) => new Client(server.host, server.port, server.version as VERSION)
 );
@@ -31,7 +33,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const DEMO_OFFSET_FUNCTION = `(origin, servers) => {
+const DEFAULT_OFFSET_FUNCTION = `(origin, servers) => {
   const totals = servers.reduce(
     (acc, server) => {
       const players = server?.players || {};
@@ -239,7 +241,7 @@ function isValidServerStatus(value: unknown) {
 }
 
 function compileOffsetFunction(source: string): OffsetFunction {
-  const trimmed = source.trim();
+  const trimmed = source.trim().replace(/;+\s*$/, "");
   const attempts = [
     () =>
       new Function(
@@ -272,6 +274,59 @@ function applyOffset(origin: ServerStatus, servers: ServerStatus[]) {
     log.error("偏移函数执行失败:", error);
     return origin;
   }
+}
+
+async function applyAndPersistOffset(
+  source: string,
+  options?: { persist?: boolean }
+) {
+  const fn = compileOffsetFunction(source);
+  const sampleServers = await getServerStatuses();
+  const originInfo = buildOriginInfo(
+    sampleServers,
+    version2Protocol("1.16.5")
+  );
+  const result = fn(originInfo, sampleServers);
+  const merged = mergeOverride(originInfo, result);
+  if (!isValidServerStatus(merged)) {
+    throw new Error("偏移函数返回格式不正确");
+  }
+  offsetFunction = { source, fn };
+
+  if (options?.persist !== false) {
+    await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
+    await fs.promises.writeFile(OFFSET_FILE, source, "utf8");
+  }
+}
+
+async function initOffsetFunction() {
+  if (offsetInitPromise) {
+    return offsetInitPromise;
+  }
+
+  offsetInitPromise = (async () => {
+    let source: string | null = null;
+    try {
+      source = await fs.promises.readFile(OFFSET_FILE, "utf8");
+    } catch {
+      source = null;
+    }
+
+    if (!source || !source.trim()) {
+      source = DEFAULT_OFFSET_FUNCTION;
+      await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
+      await fs.promises.writeFile(OFFSET_FILE, source, "utf8");
+    }
+
+    try {
+      await applyAndPersistOffset(source, { persist: false });
+    } catch (error) {
+      log.error("偏移函数初始化失败，已回退到默认函数:", error);
+      await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION);
+    }
+  })();
+
+  return offsetInitPromise;
 }
 
 async function getServerStatuses(): Promise<ServerStatus[]> {
@@ -309,18 +364,21 @@ async function handleServerList(
     protocolVersion = version2Protocol("1.16.5");
   }
 
+  await initOffsetFunction();
   const allServer = await getServerStatuses();
   const originInfo = buildOriginInfo(allServer, protocolVersion);
   const resInfo = applyOffset(originInfo, allServer);
   sendJson(res, 200, resInfo);
 }
 
-function handleOffsetGet(res: ServerResponse) {
+async function handleOffsetGet(res: ServerResponse) {
+  await initOffsetFunction();
   sendJson(res, 200, { "__fn__": offsetFunction?.source || "" });
 }
 
 async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
   try {
+    await initOffsetFunction();
     const body = await readJsonBody(req);
     const fnSource =
       typeof body.__fn__ === "string"
@@ -334,20 +392,7 @@ async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
       return;
     }
 
-    const fn = compileOffsetFunction(fnSource);
-    const sampleServers = await getServerStatuses();
-    const originInfo = buildOriginInfo(
-      sampleServers,
-      version2Protocol("1.16.5")
-    );
-    const result = fn(originInfo, sampleServers);
-    const merged = mergeOverride(originInfo, result);
-    if (!isValidServerStatus(merged)) {
-      sendJson(res, 400, { error: "偏移函数返回格式不正确" });
-      return;
-    }
-
-    offsetFunction = { source: fnSource, fn };
+    await applyAndPersistOffset(fnSource);
     res.statusCode = 200;
     res.end();
   } catch (err) {
@@ -356,22 +401,9 @@ async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
 }
 
 async function handleOffsetTestPut(res: ServerResponse) {
-  const source = DEMO_OFFSET_FUNCTION;
   try {
-    const fn = compileOffsetFunction(source);
-    const sampleServers = await getServerStatuses();
-    const originInfo = buildOriginInfo(
-      sampleServers,
-      version2Protocol("1.16.5")
-    );
-    const result = fn(originInfo, sampleServers);
-    const merged = mergeOverride(originInfo, result);
-    if (!isValidServerStatus(merged)) {
-      sendJson(res, 500, { error: "偏移函数测试结果格式不正确" });
-      return;
-    }
-    offsetFunction = { source, fn };
-    sendJson(res, 200, { ok: true, "__fn__": source });
+    await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION);
+    sendJson(res, 200, { ok: true, "__fn__": DEFAULT_OFFSET_FUNCTION });
   } catch (error) {
     log.error("偏移函数测试设置失败:", error);
     sendJson(res, 500, { error: "偏移函数测试设置失败" });
@@ -409,6 +441,10 @@ function handleHealth(res: ServerResponse) {
   });
 }
 
+export async function initOffsetStorage() {
+  await initOffsetFunction();
+}
+
 export async function handleHttpRequest(
   req: IncomingMessage,
   res: ServerResponse
@@ -439,7 +475,7 @@ export async function handleHttpRequest(
       return;
     }
     if (pathname === "/offset" && method === "GET") {
-      handleOffsetGet(res);
+      await handleOffsetGet(res);
       return;
     }
     if (pathname === "/offset" && method === "PUT") {

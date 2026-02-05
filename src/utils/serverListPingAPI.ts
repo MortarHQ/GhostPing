@@ -187,7 +187,13 @@ class MinecraftProtocolHandler {
       const rawHost = config.server.host || "localhost";
       const fetchHost =
         rawHost === "0.0.0.0" || rawHost === "::" ? "127.0.0.1" : rawHost;
-      const uri = `http://${fetchHost}:${config.server.port}${SERVERLIST}?protocolVersion=${protocolVersion}`;
+      const rawWebPort = config.server.web_port
+        ? Number.parseInt(config.server.web_port, 10)
+        : NaN;
+      const webPort = Number.isFinite(rawWebPort)
+        ? rawWebPort
+        : Number.parseInt(config.server.port, 10) || 24680;
+      const uri = `http://${fetchHost}:${webPort}${SERVERLIST}?protocolVersion=${protocolVersion}`;
 
       const requestInit = {
         headers: {

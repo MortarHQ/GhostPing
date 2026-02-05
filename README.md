@@ -104,6 +104,9 @@ MC_HOST=bgp.mortar.top MC_PORT=25565 MC_VERSION=1.16.5 MC_OUT=test.json pnpm run
 项目的配置通过配置文件进行管理：
 
 1. **配置文件**：项目的配置文件位于 `data/config.toml` 中。您可以根据需要修改这些配置，以适应不同的环境和需求。
+   - `server.port`: Minecraft TCP 端口，默认 `25565`
+   - `server.web_port`: Web 控制台端口，默认 `24680`
+   - `data/offset.fn.js`: 偏移函数脚本，服务端启动时自动读取/写入
 
 ## 使用方式
 

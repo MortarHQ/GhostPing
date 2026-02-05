@@ -35,7 +35,7 @@ function loadConfig(): ParsedConfig {
     server_list: [],
     server: {
       port: "25565", // 默认端口
-      web_port: "25565", // 默认 web 端口
+      web_port: "24680", // 默认 web 端口
       logLevel: "info", // 默认日志级别
       logFormat: "combined", // 默认日志格式
       host: "0.0.0.0", // 默认主机

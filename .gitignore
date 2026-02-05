@@ -64,5 +64,8 @@ typings/
 test.json
 demo.ts
 
+# data中特定文件
+data/offset.fn.js
+
 # build
 dist

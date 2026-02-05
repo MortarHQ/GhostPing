@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh" class="antialiased">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,180 +7,320 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.5"></script>
     <script>
       tailwind.config = {
+        darkMode: "class",
         theme: {
           extend: {
             fontFamily: {
-              sans: ["Space Grotesk", "ui-sans-serif", "system-ui"],
-              mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular"],
+              sans: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
             },
             colors: {
-              midnight: "#0b1225",
-              haze: "#111a33",
-              ember: "#f97316",
-              mint: "#6ee7b7",
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: {
+                DEFAULT: "hsl(var(--primary))",
+                foreground: "hsl(var(--primary-foreground))",
+              },
+              secondary: {
+                DEFAULT: "hsl(var(--secondary))",
+                foreground: "hsl(var(--secondary-foreground))",
+              },
+              destructive: {
+                DEFAULT: "hsl(var(--destructive))",
+                foreground: "hsl(var(--destructive-foreground))",
+              },
+              muted: {
+                DEFAULT: "hsl(var(--muted))",
+                foreground: "hsl(var(--muted-foreground))",
+              },
+              accent: {
+                DEFAULT: "hsl(var(--accent))",
+                foreground: "hsl(var(--accent-foreground))",
+              },
+              card: {
+                DEFAULT: "hsl(var(--card))",
+                foreground: "hsl(var(--card-foreground))",
+              },
             },
-            boxShadow: {
-              glow: "0 0 30px rgba(110, 231, 183, 0.15)",
+            borderRadius: {
+              lg: "var(--radius)",
+              md: "calc(var(--radius) - 2px)",
+              sm: "calc(var(--radius) - 4px)",
             },
           },
         },
       };
     </script>
-  </head>
-  <body class="min-h-screen bg-midnight text-slate-100">
-    <div
-      class="min-h-screen bg-gradient-to-br from-midnight via-slate-900 to-haze"
-    >
-      <header class="mx-auto max-w-6xl px-6 pt-10 pb-6">
-        <p class="text-sm uppercase tracking-[0.4em] text-slate-400">
-          Mortar Daemon
-        </p>
-        <h1 class="mt-3 text-4xl font-semibold text-white">
-          Minecraft 服务器状态控制台
-        </h1>
-        <p class="mt-3 max-w-2xl text-slate-300">
-          使用函数控制 server_list 的偏移输出，并实时预览 Minecraft 客户端展示效果。
-        </p>
-      </header>
+    <style>
+      /* 定义 CSS 变量以模拟 Shadcn 的 Zinc 主题 */
+      :root {
+        --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 240 10% 3.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 240 10% 3.9%;
+        --primary: 240 5.9% 10%;
+        --primary-foreground: 0 0% 98%;
+        --secondary: 240 4.8% 95.9%;
+        --secondary-foreground: 240 5.9% 10%;
+        --muted: 240 4.8% 95.9%;
+        --muted-foreground: 240 3.8% 46.1%;
+        --accent: 240 4.8% 95.9%;
+        --accent-foreground: 240 5.9% 10%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 5.9% 90%;
+        --input: 240 5.9% 90%;
+        --ring: 240 5.9% 10%;
+        --radius: 0.5rem;
+      }
 
-      <main class="mx-auto grid max-w-6xl gap-6 px-6 pb-12 lg:grid-cols-2">
-        <section
-          class="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-6 shadow-xl"
-        >
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-xl font-semibold text-white">偏移函数</h2>
-              <p class="text-sm text-slate-400">
-                传入 origin 与 servers，返回自定义 ServerStatus。
-              </p>
+      .dark {
+        --background: 240 10% 3.9%;
+        --foreground: 0 0% 98%;
+        --card: 240 10% 3.9%;
+        --card-foreground: 0 0% 98%;
+        --popover: 240 10% 3.9%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 0 0% 98%;
+        --primary-foreground: 240 5.9% 10%;
+        --secondary: 240 3.7% 15.9%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 240 3.7% 15.9%;
+        --muted-foreground: 240 5% 64.9%;
+        --accent: 240 3.7% 15.9%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 3.7% 15.9%;
+        --input: 240 3.7% 15.9%;
+        --ring: 240 4.9% 83.9%;
+      }
+
+      /* 基础样式覆盖 */
+      body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        /* 添加亮色模式下的背景纹理 (深色小圆点) */
+        background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23171717' fill-opacity='0.07' fill-rule='evenodd'%3E%3Ccircle cx='5' cy='5' r='2'/%3E%3Ccircle cx='25' cy='15' r='1'/%3E%3Ccircle cx='15' cy='30' r='1.5'/%3E%3Ccircle cx='35' cy='35' r='1'/%3E%3C/g%3E%3C/svg%3E");
+      }
+      
+      /* 暗色模式下的背景纹理适配 (浅色小圆点) */
+      .dark body {
+        background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.07' fill-rule='evenodd'%3E%3Ccircle cx='5' cy='5' r='2'/%3E%3Ccircle cx='25' cy='15' r='1'/%3E%3Ccircle cx='15' cy='30' r='1.5'/%3E%3Ccircle cx='35' cy='35' r='1'/%3E%3C/g%3E%3C/svg%3E");
+      }
+      
+      /* Dialog backdrop */
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(2px);
+      }
+    </style>
+    <script>
+      if (
+        localStorage.theme === "dark" ||
+        (!("theme" in localStorage) &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    </script>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <header class="border-b border-border bg-card">
+      <div class="container mx-auto max-w-6xl px-4 md:px-6 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="h-6 w-6 bg-primary rounded-md flex items-center justify-center">
+            <span class="text-primary-foreground font-bold text-xs">M</span>
+          </div>
+          <h1 class="text-lg font-semibold tracking-tight">Mortar Daemon</h1>
+        </div>
+        
+        <div class="flex items-center gap-4">
+          <button
+            id="theme-toggle"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden dark:block"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="block dark:hidden"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            <span class="sr-only">Toggle theme</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 py-8 container mx-auto max-w-6xl px-4 md:px-6">
+      <div class="mb-8">
+        <h2 class="text-3xl font-bold tracking-tight">Minecraft 服务器控制台</h2>
+        <p class="text-muted-foreground mt-2">
+          编写偏移函数控制输出，并实时预览客户端展示效果。
+        </p>
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        
+        <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+          <div class="flex flex-col space-y-1.5 p-6 pb-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold leading-none tracking-tight">偏移函数</h3>
+              <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                Function Mode
+              </span>
             </div>
-            <div
-              class="rounded-full border border-slate-700/60 bg-slate-800/60 px-3 py-1 text-xs text-slate-300"
-            >
-              Function Mode
-            </div>
+            <p class="text-sm text-muted-foreground">
+              传入 origin 与 servers，返回自定义 ServerStatus。
+            </p>
           </div>
 
-          <div class="mt-5">
-            <label class="text-sm font-medium text-slate-300">
-              函数内容（JavaScript）
-            </label>
+          <div class="p-6 pt-0">
+            <div class="flex items-center gap-2 mb-3">
+              <button
+                id="load-btn"
+                class="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                同步服务端
+              </button>
+              <button
+                id="demo-btn"
+                class="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+                导入示例
+              </button>
+            </div>
+
             <textarea
               id="fn-input"
               spellcheck="false"
-              class="mt-3 h-72 w-full resize-none rounded-2xl border border-slate-700/70 bg-slate-950/80 px-4 py-3 font-mono text-sm text-slate-100 shadow-inner focus:border-ember/70 focus:outline-none focus:ring-2 focus:ring-ember/30"
+              class="flex min-h-[300px] w-full rounded-md border border-input bg-secondary/30 px-3 py-2 text-sm font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
               placeholder="(origin, servers) => ({ players: { online: 0, max: 0 } })"
             ></textarea>
-          </div>
 
-          <div class="mt-5 grid gap-3 sm:grid-cols-2">
-            <button
-              id="apply-btn"
-              class="rounded-xl bg-ember px-4 py-2 text-sm font-semibold text-slate-900 shadow-glow transition hover:-translate-y-0.5 hover:bg-orange-400"
-            >
-              应用函数
-            </button>
-            <button
-              id="refresh-btn"
-              class="rounded-xl border border-slate-700/70 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-mint/60 hover:text-mint"
-            >
-              刷新预览
-            </button>
-            <button
-              id="load-btn"
-              class="rounded-xl border border-slate-700/70 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
-            >
-              加载当前函数
-            </button>
-            <button
-              id="demo-btn"
-              class="rounded-xl border border-slate-700/70 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
-            >
-              应用示例函数
-            </button>
-          </div>
-
-          <div class="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              id="toggle-raw-btn"
-              class="rounded-full border border-slate-700/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-slate-300 transition hover:border-mint/50 hover:text-mint"
-            >
-              显示源格式
-            </button>
-            <p id="status" class="text-sm text-slate-400"></p>
-          </div>
-        </section>
-
-        <section
-          class="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-6 shadow-xl"
-        >
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-white">Minecraft 预览</h2>
-            <span class="text-xs uppercase tracking-[0.3em] text-slate-400">
-              serverlist
-            </span>
-          </div>
-
-          <div
-            class="mt-5 rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-950/90 via-slate-900/80 to-slate-800/80 p-5"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="flex h-16 w-16 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-950/70"
+            <div class="mt-4 flex items-center justify-between">
+              <p id="status" class="text-sm text-muted-foreground"></p>
+              <button
+                id="apply-btn"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2"
               >
-                <img
-                  id="favicon"
-                  class="h-12 w-12"
-                  src=""
-                  alt="favicon"
-                />
-              </div>
-              <div>
-                <p class="text-sm text-slate-400">版本</p>
-                <p id="version" class="text-lg font-semibold text-white">
-                  -
-                </p>
-                <p id="protocol" class="text-xs text-slate-500">协议: -</p>
-              </div>
+                应用函数
+              </button>
             </div>
+          </div>
+        </div>
 
-            <div class="mt-4">
-              <p class="text-sm text-slate-400">描述</p>
-              <div
-                id="description"
-                class="mt-2 min-h-[48px] whitespace-pre-line rounded-xl border border-slate-800 bg-black/40 px-3 py-2 font-mono text-sm text-slate-100"
-              ></div>
-            </div>
-
-            <div class="mt-4 grid gap-3 md:grid-cols-2">
-              <div class="rounded-xl border border-slate-800 bg-black/40 p-3">
-                <p class="text-sm text-slate-400">在线玩家</p>
-                <p id="players" class="text-2xl font-semibold text-mint">
-                  -
-                </p>
-              </div>
-              <div class="rounded-xl border border-slate-800 bg-black/40 p-3">
-                <p class="text-sm text-slate-400">示例玩家</p>
-                <div id="sample" class="mt-2 text-sm text-slate-200"></div>
+        <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm flex flex-col h-full">
+          <div class="flex flex-col space-y-1.5 p-6 pb-4">
+             <div class="flex items-center justify-between">
+              <h3 class="font-semibold leading-none tracking-tight">预览效果</h3>
+              <div class="flex items-center gap-2">
+                <button
+                  id="refresh-btn"
+                  title="刷新预览"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 w-8"
+                >
+                  <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                </button>
+                <button
+                  id="raw-open-btn"
+                  class="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 px-2 text-muted-foreground"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  查看 JSON
+                </button>
               </div>
             </div>
           </div>
 
-          <pre
-            id="raw-json"
-            class="mt-5 hidden max-h-64 overflow-auto rounded-2xl border border-slate-700/70 bg-slate-950/90 p-4 text-xs text-slate-200"
-          ></pre>
-        </section>
-      </main>
-    </div>
+          <div class="p-6 pt-0 flex-1">
+            <div id="preview-card" class="rounded-lg border border-border bg-[#121212] p-4 shadow-inner transition-all duration-300">
+               <div class="flex gap-4">
+                  <div class="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-[#1e1e1e] border border-white/10 flex items-center justify-center">
+                    <img id="favicon" src="" alt="" class="h-16 w-16 object-contain" />
+                  </div>
+                  
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline justify-between">
+                       <h4 id="version" class="text-white text-base font-bold truncate">Loading...</h4>
+                       <span id="players" class="text-[#AAAAAA] text-sm font-mono shrink-0">- / -</span>
+                    </div>
+                    
+                    <div id="description" class="mt-1 font-mono text-sm leading-snug break-words whitespace-pre-line text-[#AAAAAA] min-h-[2.5rem]">
+                      </div>
+
+                     <div class="flex items-center justify-between mt-2">
+                         <span id="protocol" class="text-xs text-[#555555]">Protocol: -</span>
+                         <div class="flex -space-x-1" id="sample-avatars">
+                             </div>
+                     </div>
+                  </div>
+               </div>
+
+               <div class="mt-4 pt-3 border-t border-white/10">
+                  <p class="text-[10px] uppercase tracking-wider text-[#555555] font-semibold mb-2">Sample Players Hover</p>
+                  <div id="sample" class="font-mono text-xs text-[#AAAAAA] space-y-1 pl-1">
+                      暂无示例玩家
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <dialog
+      id="raw-modal"
+      class="bg-transparent p-0 w-full max-w-lg backdrop:bg-black/50"
+    >
+      <div class="relative w-full rounded-lg border border-border bg-background p-6 shadow-lg sm:rounded-xl">
+        <div class="flex flex-col space-y-1.5 text-center sm:text-left mb-4">
+          <h3 class="text-lg font-semibold leading-none tracking-tight text-foreground">源格式数据</h3>
+          <p class="text-sm text-muted-foreground">服务端返回的原始 JSON 数据。</p>
+        </div>
+
+        <div class="relative rounded-md border border-input bg-secondary/50 p-4">
+          <pre id="raw-json" class="max-h-[300px] overflow-auto text-xs font-mono text-foreground"></pre>
+        </div>
+
+        <div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2">
+           <button
+            id="raw-close-btn"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+          >
+            关闭
+          </button>
+          <button
+            id="raw-copy-btn"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2"
+          >
+            复制数据
+          </button>
+        </div>
+      </div>
+    </dialog>
 
     <script>
+      // === Theme Logic ===
+      const themeToggleBtn = document.getElementById("theme-toggle");
+      
+      themeToggleBtn.addEventListener("click", () => {
+        const isDark = document.documentElement.classList.toggle("dark");
+        localStorage.theme = isDark ? "dark" : "light";
+      });
+
+      // === API & Elements ===
       const api = {
         serverList: "./serverlist",
         offset: "./offset",
@@ -191,7 +331,10 @@
         fnInput: document.getElementById("fn-input"),
         status: document.getElementById("status"),
         rawJson: document.getElementById("raw-json"),
-        toggleRawBtn: document.getElementById("toggle-raw-btn"),
+        rawOpenBtn: document.getElementById("raw-open-btn"),
+        rawModal: document.getElementById("raw-modal"),
+        rawCloseBtn: document.getElementById("raw-close-btn"),
+        rawCopyBtn: document.getElementById("raw-copy-btn"),
         favicon: document.getElementById("favicon"),
         version: document.getElementById("version"),
         protocol: document.getElementById("protocol"),
@@ -202,8 +345,12 @@
         loadBtn: document.getElementById("load-btn"),
         demoBtn: document.getElementById("demo-btn"),
         refreshBtn: document.getElementById("refresh-btn"),
+        refreshIcon: document.getElementById("refresh-icon"),
+        previewCard: document.getElementById("preview-card"),
       };
 
+      // MC Color Codes mapped to CSS colors
+      // Note: Used specifically within the preview box which has a dark bg
       const COLOR_MAP = {
         black: "#000000",
         dark_blue: "#0000AA",
@@ -226,18 +373,25 @@
       function setStatus(message, type = "info") {
         if (!message) {
           elements.status.textContent = "";
-          elements.status.className = "text-sm text-slate-400";
           return;
         }
 
-        const color =
-          type === "error"
-            ? "text-red-400"
-            : type === "success"
-            ? "text-mint"
-            : "text-slate-300";
+        // Adjust colors for shadcn context
+        let colorClass = "text-muted-foreground";
+        if (type === "error") colorClass = "text-destructive";
+        if (type === "success") colorClass = "text-green-600 dark:text-green-500";
+
         elements.status.textContent = message;
-        elements.status.className = `text-sm ${color}`;
+        elements.status.className = `text-sm transition-colors duration-300 ${colorClass}`;
+        
+        // Auto clear success message after 3s
+        if (type === 'success') {
+          setTimeout(() => {
+            if (elements.status.textContent === message) {
+              elements.status.textContent = "";
+            }
+          }, 3000);
+        }
       }
 
       async function loadCurrentFunction() {
@@ -246,7 +400,7 @@
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           elements.fnInput.value = data.__fn__ || "";
-          setStatus("已加载当前函数。", "success");
+          setStatus("已同步服务端代码", "success");
         } catch (error) {
           setStatus(`加载失败: ${error}`, "error");
         }
@@ -255,9 +409,14 @@
       async function applyFunction() {
         const source = elements.fnInput.value.trim();
         if (!source) {
-          setStatus("函数内容不能为空。", "error");
+          setStatus("函数内容不能为空", "error");
           return;
         }
+        
+        const originalText = elements.applyBtn.textContent;
+        elements.applyBtn.disabled = true;
+        elements.applyBtn.textContent = "应用中...";
+
         try {
           const res = await fetch(api.offset, {
             method: "PUT",
@@ -268,10 +427,13 @@
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error || `HTTP ${res.status}`);
           }
-          setStatus("函数已应用。", "success");
+          setStatus("函数已成功应用", "success");
           await refreshPreview();
         } catch (error) {
           setStatus(`提交失败: ${error}`, "error");
+        } finally {
+          elements.applyBtn.disabled = false;
+          elements.applyBtn.textContent = originalText;
         }
       }
 
@@ -281,8 +443,8 @@
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           elements.fnInput.value = data.__fn__ || "";
-          setStatus("示例函数已加载。", "success");
-          await refreshPreview();
+          setStatus("示例函数已导入", "success");
+          // await refreshPreview();
         } catch (error) {
           setStatus(`示例加载失败: ${error}`, "error");
         }
@@ -304,7 +466,7 @@
               if (part.color) {
                 span.style.color = COLOR_MAP[part.color] || part.color;
               }
-              if (part.bold) span.classList.add("font-semibold");
+              if (part.bold) span.classList.add("font-bold");
               if (part.italic) span.classList.add("italic");
               if (part.underlined) span.classList.add("underline");
               elements.description.appendChild(span);
@@ -328,7 +490,7 @@
         }
         list.slice(0, 6).forEach((player) => {
           const row = document.createElement("div");
-          row.textContent = player.name;
+          row.textContent = `> ${player.name}`;
           elements.sample.appendChild(row);
         });
       }
@@ -336,42 +498,133 @@
       function renderServer(data) {
         if (!data) return;
         elements.version.textContent = data.version?.name || "-";
-        elements.protocol.textContent = `协议: ${
-          data.version?.protocol ?? "-"
-        }`;
-        elements.players.textContent = `${data.players?.online ?? 0} / ${
-          data.players?.max ?? 0
-        }`;
-        elements.favicon.src = data.favicon || "";
+        elements.protocol.textContent = `Protocol: ${data.version?.protocol ?? "-"}`;
+        elements.players.textContent = `${data.players?.online ?? 0} / ${data.players?.max ?? 0}`;
+        
+        // Handle favicon (base64 or url)
+        if (data.favicon) {
+           elements.favicon.src = data.favicon;
+           elements.favicon.classList.remove("hidden");
+        } else {
+           elements.favicon.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23555'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'/%3E%3C/svg%3E";
+        }
+        
         renderDescription(data.description);
         renderSample(data.players);
         elements.rawJson.textContent = JSON.stringify(data, null, 2);
       }
 
       async function refreshPreview() {
+        // 开始状态：
+        // 1. 禁用按钮
+        elements.refreshBtn.disabled = true;
+        // 2. 图标旋转
+        elements.refreshIcon.classList.add("animate-spin");
+        // 3. 卡片进入“刷新中”视觉状态 (变暗 + 模糊)
+        elements.previewCard.classList.add("opacity-50", "blur-[1px]", "pointer-events-none");
+        
         try {
           const res = await fetch(api.serverList);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
+          
+          // 模拟一点延迟让动画更明显（可选，如果你的本地服务器非常快，可以去掉这行）
+          // await new Promise(r => setTimeout(r, 300));
+
           renderServer(data);
-          setStatus("预览已刷新。", "success");
+          
+          // Only show success toast if it was a manual click, otherwise just update quietly
+          if(document.activeElement === elements.refreshBtn) {
+             setStatus("预览已刷新", "success");
+          }
         } catch (error) {
-          setStatus(`预览失败: ${error}`, "error");
+          setStatus(`预览刷新失败: ${error}`, "error");
+        } finally {
+          // 结束状态：恢复按钮和卡片
+          elements.refreshBtn.disabled = false;
+          elements.refreshIcon.classList.remove("animate-spin");
+          elements.previewCard.classList.remove("opacity-50", "blur-[1px]", "pointer-events-none");
         }
       }
 
+      let lastActiveElement = null;
+
+      function openRawModal() {
+        if (!elements.rawJson.textContent) {
+          setStatus("暂无可显示的数据", "error");
+          return;
+        }
+        lastActiveElement = document.activeElement;
+        if (!elements.rawModal.open) {
+          elements.rawModal.showModal();
+        }
+        elements.rawCloseBtn.focus();
+      }
+
+      function closeRawModal() {
+        if (elements.rawModal.open) {
+          elements.rawModal.close();
+        }
+      }
+
+      function restoreFocus() {
+        if (lastActiveElement && lastActiveElement.focus) {
+          lastActiveElement.focus();
+        }
+      }
+
+      async function copyRaw() {
+        const text = elements.rawJson.textContent || "";
+        if (!text) {
+          setStatus("暂无数据可复制", "error");
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus("已复制到剪贴板", "success");
+        } catch (error) {
+          setStatus(`复制失败: ${error}`, "error");
+        }
+      }
+
+      // Keydown handlers
+      function handleKeydown(event) {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c" && elements.rawModal.open) {
+          event.preventDefault();
+          copyRaw();
+        }
+      }
+
+      // Event Listeners
       elements.applyBtn.addEventListener("click", applyFunction);
       elements.loadBtn.addEventListener("click", loadCurrentFunction);
       elements.demoBtn.addEventListener("click", applyDemo);
       elements.refreshBtn.addEventListener("click", refreshPreview);
-      elements.toggleRawBtn.addEventListener("click", () => {
-        elements.rawJson.classList.toggle("hidden");
-        const visible = !elements.rawJson.classList.contains("hidden");
-        elements.toggleRawBtn.textContent = visible
-          ? "隐藏源格式"
-          : "显示源格式";
+      elements.rawOpenBtn.addEventListener("click", openRawModal);
+      elements.rawCloseBtn.addEventListener("click", closeRawModal);
+      elements.rawCopyBtn.addEventListener("click", copyRaw);
+      elements.rawModal.addEventListener("close", restoreFocus);
+      elements.rawModal.addEventListener("click", (event) => {
+        const rect = elements.rawModal.getBoundingClientRect();
+        // Dialog backdrop click detection
+        // Note: For <dialog>, clicking backdrop technically clicks the element itself, content is inside
+        // Need to check if click is inside the internal container div
+        const dialogContent = elements.rawModal.firstElementChild;
+        const contentRect = dialogContent.getBoundingClientRect();
+        
+        const isInside =
+          event.clientX >= contentRect.left &&
+          event.clientX <= contentRect.right &&
+          event.clientY >= contentRect.top &&
+          event.clientY <= contentRect.bottom;
+          
+        if (!isInside) {
+          elements.rawModal.close();
+        }
       });
+      document.addEventListener("keydown", handleKeydown);
 
+      // Initial Load
       loadCurrentFunction();
       refreshPreview();
     </script>

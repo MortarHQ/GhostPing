@@ -3,167 +3,377 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>controller</title>
-    <!-- Import style -->
-    <link rel="stylesheet" href="//unpkg.com/element-plus/dist/index.css" />
-    <link rel="stylesheet" href="./style.css" />
-    <!-- Import Vue 3 -->
-    <script src="//unpkg.com/vue@3"></script>
-    <!-- Import component library -->
-    <script src="//unpkg.com/element-plus"></script>
+    <title>Mortar Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Space Grotesk", "ui-sans-serif", "system-ui"],
+              mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular"],
+            },
+            colors: {
+              midnight: "#0b1225",
+              haze: "#111a33",
+              ember: "#f97316",
+              mint: "#6ee7b7",
+            },
+            boxShadow: {
+              glow: "0 0 30px rgba(110, 231, 183, 0.15)",
+            },
+          },
+        },
+      };
+    </script>
   </head>
-  <body>
-    <div id="app">
-      <el-container class="app-container">
-        <el-header>
-          <h1>web控制台</h1>
-        </el-header>
-        <el-container>
-          <el-aside width="auto">
-            <el-scrollbar>
-              <el-container class="aside">
-                <div>
-                  <el-button plain type="primary" @click="submit">
-                    提交偏移
-                  </el-button>
-                </div>
-                <div>
-                  <el-button plain type="info" @click="reset">
-                    重置偏移
-                  </el-button>
-                </div>
+  <body class="min-h-screen bg-midnight text-slate-100">
+    <div
+      class="min-h-screen bg-gradient-to-br from-midnight via-slate-900 to-haze"
+    >
+      <header class="mx-auto max-w-6xl px-6 pt-10 pb-6">
+        <p class="text-sm uppercase tracking-[0.4em] text-slate-400">
+          Mortar Daemon
+        </p>
+        <h1 class="mt-3 text-4xl font-semibold text-white">
+          Minecraft 服务器状态控制台
+        </h1>
+        <p class="mt-3 max-w-2xl text-slate-300">
+          使用函数控制 server_list 的偏移输出，并实时预览 Minecraft 客户端展示效果。
+        </p>
+      </header>
 
-                <el-footer>aside footer</el-footer>
-              </el-container>
-            </el-scrollbar>
-          </el-aside>
-          <el-main>
-            <el-scrollbar>
-              <div class="json-area">
-                <div class="offset" contenteditable="true" ref="offsetRef">
-                  {{ computedProps.offset }}
-                </div>
-                <div class="list">{{ computedProps.serverList }}</div>
+      <main class="mx-auto grid max-w-6xl gap-6 px-6 pb-12 lg:grid-cols-2">
+        <section
+          class="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-6 shadow-xl"
+        >
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xl font-semibold text-white">偏移函数</h2>
+              <p class="text-sm text-slate-400">
+                传入 origin 与 servers，返回自定义 ServerStatus。
+              </p>
+            </div>
+            <div
+              class="rounded-full border border-slate-700/60 bg-slate-800/60 px-3 py-1 text-xs text-slate-300"
+            >
+              Function Mode
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <label class="text-sm font-medium text-slate-300">
+              函数内容（JavaScript）
+            </label>
+            <textarea
+              id="fn-input"
+              spellcheck="false"
+              class="mt-3 h-72 w-full resize-none rounded-2xl border border-slate-700/70 bg-slate-950/80 px-4 py-3 font-mono text-sm text-slate-100 shadow-inner focus:border-ember/70 focus:outline-none focus:ring-2 focus:ring-ember/30"
+              placeholder="(origin, servers) => ({ players: { online: 0, max: 0 } })"
+            ></textarea>
+          </div>
+
+          <div class="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              id="apply-btn"
+              class="rounded-xl bg-ember px-4 py-2 text-sm font-semibold text-slate-900 shadow-glow transition hover:-translate-y-0.5 hover:bg-orange-400"
+            >
+              应用函数
+            </button>
+            <button
+              id="refresh-btn"
+              class="rounded-xl border border-slate-700/70 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-mint/60 hover:text-mint"
+            >
+              刷新预览
+            </button>
+            <button
+              id="load-btn"
+              class="rounded-xl border border-slate-700/70 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
+            >
+              加载当前函数
+            </button>
+            <button
+              id="demo-btn"
+              class="rounded-xl border border-slate-700/70 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
+            >
+              应用示例函数
+            </button>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              id="toggle-raw-btn"
+              class="rounded-full border border-slate-700/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-slate-300 transition hover:border-mint/50 hover:text-mint"
+            >
+              显示源格式
+            </button>
+            <p id="status" class="text-sm text-slate-400"></p>
+          </div>
+        </section>
+
+        <section
+          class="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-6 shadow-xl"
+        >
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-white">Minecraft 预览</h2>
+            <span class="text-xs uppercase tracking-[0.3em] text-slate-400">
+              serverlist
+            </span>
+          </div>
+
+          <div
+            class="mt-5 rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-950/90 via-slate-900/80 to-slate-800/80 p-5"
+          >
+            <div class="flex items-center gap-4">
+              <div
+                class="flex h-16 w-16 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-950/70"
+              >
+                <img
+                  id="favicon"
+                  class="h-12 w-12"
+                  src=""
+                  alt="favicon"
+                />
               </div>
-              <el-footer>footer</el-footer>
-            </el-scrollbar>
-          </el-main>
-        </el-container>
-      </el-container>
+              <div>
+                <p class="text-sm text-slate-400">版本</p>
+                <p id="version" class="text-lg font-semibold text-white">
+                  -
+                </p>
+                <p id="protocol" class="text-xs text-slate-500">协议: -</p>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <p class="text-sm text-slate-400">描述</p>
+              <div
+                id="description"
+                class="mt-2 min-h-[48px] whitespace-pre-line rounded-xl border border-slate-800 bg-black/40 px-3 py-2 font-mono text-sm text-slate-100"
+              ></div>
+            </div>
+
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              <div class="rounded-xl border border-slate-800 bg-black/40 p-3">
+                <p class="text-sm text-slate-400">在线玩家</p>
+                <p id="players" class="text-2xl font-semibold text-mint">
+                  -
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-800 bg-black/40 p-3">
+                <p class="text-sm text-slate-400">示例玩家</p>
+                <div id="sample" class="mt-2 text-sm text-slate-200"></div>
+              </div>
+            </div>
+          </div>
+
+          <pre
+            id="raw-json"
+            class="mt-5 hidden max-h-64 overflow-auto rounded-2xl border border-slate-700/70 bg-slate-950/90 p-4 text-xs text-slate-200"
+          ></pre>
+        </section>
+      </main>
     </div>
 
     <script>
-      const { reactive, createApp, computed, ref } = Vue;
-      const { ElMessage } = ElementPlus;
-
       const api = {
         serverList: "./serverlist",
         offset: "./offset",
+        offsetTest: "./offset/testput",
       };
-      const cache = {};
 
-      const app = createApp({
-        setup() {
-          /* TODO */
-          const props = reactive({
-            offset: {},
-            serverList: {},
-          });
-          const computedProps = computed(() => {
-            return {
-              offset: JSON.stringify(props.offset, null, 2),
-              serverList: JSON.stringify(props.serverList, null, 2),
-            };
-          });
-          const offsetRef = ref();
-          // 首次更新
-          updateDate();
+      const elements = {
+        fnInput: document.getElementById("fn-input"),
+        status: document.getElementById("status"),
+        rawJson: document.getElementById("raw-json"),
+        toggleRawBtn: document.getElementById("toggle-raw-btn"),
+        favicon: document.getElementById("favicon"),
+        version: document.getElementById("version"),
+        protocol: document.getElementById("protocol"),
+        description: document.getElementById("description"),
+        players: document.getElementById("players"),
+        sample: document.getElementById("sample"),
+        applyBtn: document.getElementById("apply-btn"),
+        loadBtn: document.getElementById("load-btn"),
+        demoBtn: document.getElementById("demo-btn"),
+        refreshBtn: document.getElementById("refresh-btn"),
+      };
 
-          /* 各类函数 */
-          async function submit() {
-            /* 更新offset */
-            try {
-              props.offset = JSON.parse(offsetRef.value.innerText);
-            } catch (error) {
-              // json解析出错
-              ElMessage.error("不符合json文本！");
+      const COLOR_MAP = {
+        black: "#000000",
+        dark_blue: "#0000AA",
+        dark_green: "#00AA00",
+        dark_aqua: "#00AAAA",
+        dark_red: "#AA0000",
+        dark_purple: "#AA00AA",
+        gold: "#FFAA00",
+        gray: "#AAAAAA",
+        dark_gray: "#555555",
+        blue: "#5555FF",
+        green: "#55FF55",
+        aqua: "#55FFFF",
+        red: "#FF5555",
+        light_purple: "#FF55FF",
+        yellow: "#FFFF55",
+        white: "#FFFFFF",
+      };
+
+      function setStatus(message, type = "info") {
+        if (!message) {
+          elements.status.textContent = "";
+          elements.status.className = "text-sm text-slate-400";
+          return;
+        }
+
+        const color =
+          type === "error"
+            ? "text-red-400"
+            : type === "success"
+            ? "text-mint"
+            : "text-slate-300";
+        elements.status.textContent = message;
+        elements.status.className = `text-sm ${color}`;
+      }
+
+      async function loadCurrentFunction() {
+        try {
+          const res = await fetch(api.offset);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          elements.fnInput.value = data.__fn__ || "";
+          setStatus("已加载当前函数。", "success");
+        } catch (error) {
+          setStatus(`加载失败: ${error}`, "error");
+        }
+      }
+
+      async function applyFunction() {
+        const source = elements.fnInput.value.trim();
+        if (!source) {
+          setStatus("函数内容不能为空。", "error");
+          return;
+        }
+        try {
+          const res = await fetch(api.offset, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ __fn__: source }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          setStatus("函数已应用。", "success");
+          await refreshPreview();
+        } catch (error) {
+          setStatus(`提交失败: ${error}`, "error");
+        }
+      }
+
+      async function applyDemo() {
+        try {
+          const res = await fetch(api.offsetTest);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          elements.fnInput.value = data.__fn__ || "";
+          setStatus("示例函数已加载。", "success");
+          await refreshPreview();
+        } catch (error) {
+          setStatus(`示例加载失败: ${error}`, "error");
+        }
+      }
+
+      function renderDescription(description) {
+        elements.description.innerHTML = "";
+        if (Array.isArray(description)) {
+          description.forEach((part) => {
+            if (typeof part === "string") {
+              const span = document.createElement("span");
+              span.textContent = part;
+              elements.description.appendChild(span);
               return;
             }
-            /* 检测offset有无更新 */
-            if (
-              JSON.stringify(cache.offset, null) ===
-              JSON.stringify(props.offset, null)
-            ) {
-              ElMessage.error("没有发生变化");
-              return;
+            if (part && typeof part === "object") {
+              const span = document.createElement("span");
+              span.textContent = part.text || "";
+              if (part.color) {
+                span.style.color = COLOR_MAP[part.color] || part.color;
+              }
+              if (part.bold) span.classList.add("font-semibold");
+              if (part.italic) span.classList.add("italic");
+              if (part.underlined) span.classList.add("underline");
+              elements.description.appendChild(span);
             }
-            const origin = await fetch(api.offset, {
-              method: "put",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(props.offset),
-            })
-              .then((data) => {
-                ElMessage.success(`提交成功！ status:${data.status}`);
-                updateDate();
-              })
-              .catch((error) => {
-                console.error(error);
-                return {};
-              });
-          }
+          });
+        } else if (description && typeof description === "object") {
+          const span = document.createElement("span");
+          span.textContent = description.text || "";
+          elements.description.appendChild(span);
+        } else {
+          elements.description.textContent = description || "";
+        }
+      }
 
-          // 更新数据
-          async function updateDate() {
-            await fetch(api.offset)
-              .then((data) => data.json())
-              .then((res) => {
-                props.offset = res;
-              })
-              .catch((error) => {
-                console.error(error);
-                props.offset = {};
-              })
-              .finally(() => {
-                cache.offset = props.offset;
-              });
+      function renderSample(players) {
+        elements.sample.innerHTML = "";
+        const list = Array.isArray(players?.sample) ? players.sample : [];
+        if (!list.length) {
+          elements.sample.textContent = "暂无示例玩家";
+          return;
+        }
+        list.slice(0, 6).forEach((player) => {
+          const row = document.createElement("div");
+          row.textContent = player.name;
+          elements.sample.appendChild(row);
+        });
+      }
 
-            fetch(api.serverList)
-              .then((data) => data.json())
-              .then((res) => {
-                props.serverList = res;
-              })
-              .catch((error) => {
-                console.error(error);
-                props.serverList = {};
-              })
-              .finally(() => {
-                cache.serverList = props.serverList;
-              });
-          }
+      function renderServer(data) {
+        if (!data) return;
+        elements.version.textContent = data.version?.name || "-";
+        elements.protocol.textContent = `协议: ${
+          data.version?.protocol ?? "-"
+        }`;
+        elements.players.textContent = `${data.players?.online ?? 0} / ${
+          data.players?.max ?? 0
+        }`;
+        elements.favicon.src = data.favicon || "";
+        renderDescription(data.description);
+        renderSample(data.players);
+        elements.rawJson.textContent = JSON.stringify(data, null, 2);
+      }
 
-          function reset() {
-            props.offset = {};
-            setTimeout(() => {
-              props.offset = cache.offset;
-              ElMessage.success("成功");
-            }, 100);
-          }
+      async function refreshPreview() {
+        try {
+          const res = await fetch(api.serverList);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          renderServer(data);
+          setStatus("预览已刷新。", "success");
+        } catch (error) {
+          setStatus(`预览失败: ${error}`, "error");
+        }
+      }
 
-          /* 暴露内容 */
-          return {
-            props,
-            computedProps,
-            offsetRef,
-            submit,
-            reset,
-          };
-        },
+      elements.applyBtn.addEventListener("click", applyFunction);
+      elements.loadBtn.addEventListener("click", loadCurrentFunction);
+      elements.demoBtn.addEventListener("click", applyDemo);
+      elements.refreshBtn.addEventListener("click", refreshPreview);
+      elements.toggleRawBtn.addEventListener("click", () => {
+        elements.rawJson.classList.toggle("hidden");
+        const visible = !elements.rawJson.classList.contains("hidden");
+        elements.toggleRawBtn.textContent = visible
+          ? "隐藏源格式"
+          : "显示源格式";
       });
 
-      app.use(ElementPlus);
-      app.mount("#app");
+      loadCurrentFunction();
+      refreshPreview();
     </script>
   </body>
 </html>

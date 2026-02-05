@@ -10,9 +10,10 @@ import { version2Protocol } from "@utils/protocol-utils";
 import { getServerIcon } from "@utils/image-utils";
 
 type JsonRecord = Record<string, unknown>;
+type OffsetFunction = (origin: ServerStatus, servers: ServerStatus[]) => unknown;
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
-const offsetCache: JsonRecord = {};
+let offsetFunction: { source: string; fn: OffsetFunction } | null = null;
 const clientsList: Client[] = config.server_list.map(
   (server) => new Client(server.host, server.port, server.version as VERSION)
 );
@@ -29,6 +30,38 @@ const CONTENT_TYPES: Record<string, string> = {
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
 };
+
+const DEMO_OFFSET_FUNCTION = `(origin, servers) => {
+  const totals = servers.reduce(
+    (acc, server) => {
+      const players = server?.players || {};
+      const online = typeof players.online === "number" ? players.online : 0;
+      const max = typeof players.max === "number" ? players.max : 0;
+      acc.online += online;
+      acc.max += max;
+      return acc;
+    },
+    { online: 0, max: 0 }
+  );
+
+  return {
+    players: {
+      online: totals.online,
+      max: totals.max,
+    },
+    description: [
+      "",
+      { text: "Mortar", bold: true, color: "aqua" },
+      { text: " 自定义偏移函数", bold: true, color: "gold" },
+      {
+        text: "\\n当前为函数模式展示",
+        italic: true,
+        underlined: true,
+        color: "gray",
+      },
+    ],
+  };
+}`;
 
 function setCorsHeaders(req: IncomingMessage, res: ServerResponse) {
   const { origin, Origin, referer, Referer } = req.headers;
@@ -63,6 +96,10 @@ function sendText(res: ServerResponse, status: number, body: string) {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Content-Length", Buffer.byteLength(body));
   res.end(body);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 async function readJsonBody(req: IncomingMessage): Promise<JsonRecord> {
@@ -129,45 +166,12 @@ async function serveStatic(
   }
 }
 
-async function getServerStatuses(): Promise<ServerStatus[]> {
-  const promises = clientsList.map((client) =>
-    client.getServerStatus().catch((err) => {
-      log.error(`服务器状态查询错误: ${err}`);
-      return null;
-    })
-  );
-
-  const results = await Promise.all(promises);
-  return results.filter((result) => result !== null) as ServerStatus[];
-}
-
-async function handleServer(req: IncomingMessage, res: ServerResponse) {
-  try {
-    const data = await getServerStatuses();
-    sendJson(res, 200, data);
-  } catch (error) {
-    log.error("处理服务器状态请求时出错:", error);
-    sendJson(res, 500, { error: "获取服务器状态时出错" });
-  }
-}
-
-async function handleServerList(
-  req: IncomingMessage,
-  res: ServerResponse,
-  url: URL
-) {
-  let protocolVersion = Number.parseInt(
-    url.searchParams.get("protocolVersion") || "",
-    10
-  );
-  if (!protocolVersion) {
-    protocolVersion = version2Protocol("1.16.5");
-  }
-
-  const allServer = await getServerStatuses();
-
+function buildOriginInfo(
+  servers: ServerStatus[],
+  protocolVersion: number
+): ServerStatus {
   const sample: { name: String; id: String }[] = [];
-  for (const server of allServer) {
+  for (const server of servers) {
     if (
       server &&
       server.players &&
@@ -209,22 +213,141 @@ async function handleServerList(
     },
   ];
 
-  const resInfo = {};
-  Object.assign(resInfo, originInfo, offsetCache);
+  return originInfo;
+}
+
+function mergeOverride(origin: ServerStatus, override: unknown) {
+  if (isRecord(override)) {
+    return Object.assign({}, origin, override);
+  }
+  return origin;
+}
+
+function isValidServerStatus(value: unknown) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const version = value.version;
+  const players = value.players;
+  if (!isRecord(version) || !("protocol" in version) || !("name" in version)) {
+    return false;
+  }
+  if (!isRecord(players) || !("max" in players) || !("online" in players)) {
+    return false;
+  }
+  return "description" in value;
+}
+
+function compileOffsetFunction(source: string): OffsetFunction {
+  const trimmed = source.trim();
+  const attempts = [
+    () =>
+      new Function(
+        "origin",
+        "servers",
+        `return (${trimmed})(origin, servers);`
+      ) as OffsetFunction,
+    () => new Function("origin", "servers", trimmed) as OffsetFunction,
+  ];
+
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    try {
+      return attempt();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+function applyOffset(origin: ServerStatus, servers: ServerStatus[]) {
+  if (!offsetFunction) {
+    return origin;
+  }
+  try {
+    const result = offsetFunction.fn(origin, servers);
+    return mergeOverride(origin, result);
+  } catch (error) {
+    log.error("偏移函数执行失败:", error);
+    return origin;
+  }
+}
+
+async function getServerStatuses(): Promise<ServerStatus[]> {
+  const promises = clientsList.map((client) =>
+    client.getServerStatus().catch((err) => {
+      log.error(`服务器状态查询错误: ${err}`);
+      return null;
+    })
+  );
+
+  const results = await Promise.all(promises);
+  return results.filter((result) => result !== null) as ServerStatus[];
+}
+
+async function handleServer(req: IncomingMessage, res: ServerResponse) {
+  try {
+    const data = await getServerStatuses();
+    sendJson(res, 200, data);
+  } catch (error) {
+    log.error("处理服务器状态请求时出错:", error);
+    sendJson(res, 500, { error: "获取服务器状态时出错" });
+  }
+}
+
+async function handleServerList(
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: URL
+) {
+  let protocolVersion = Number.parseInt(
+    url.searchParams.get("protocolVersion") || "",
+    10
+  );
+  if (!protocolVersion) {
+    protocolVersion = version2Protocol("1.16.5");
+  }
+
+  const allServer = await getServerStatuses();
+  const originInfo = buildOriginInfo(allServer, protocolVersion);
+  const resInfo = applyOffset(originInfo, allServer);
   sendJson(res, 200, resInfo);
 }
 
 function handleOffsetGet(res: ServerResponse) {
-  sendJson(res, 200, offsetCache);
+  sendJson(res, 200, { "__fn__": offsetFunction?.source || "" });
 }
 
 async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
   try {
     const body = await readJsonBody(req);
-    Object.keys(offsetCache).forEach((key) => {
-      delete offsetCache[key];
-    });
-    Object.assign(offsetCache, body);
+    const fnSource =
+      typeof body.__fn__ === "string"
+        ? body.__fn__
+        : typeof body.fn === "string"
+          ? body.fn
+          : null;
+
+    if (!fnSource) {
+      sendJson(res, 400, { error: "请通过 __fn__ 或 fn 提供函数" });
+      return;
+    }
+
+    const fn = compileOffsetFunction(fnSource);
+    const sampleServers = await getServerStatuses();
+    const originInfo = buildOriginInfo(
+      sampleServers,
+      version2Protocol("1.16.5")
+    );
+    const result = fn(originInfo, sampleServers);
+    const merged = mergeOverride(originInfo, result);
+    if (!isValidServerStatus(merged)) {
+      sendJson(res, 400, { error: "偏移函数返回格式不正确" });
+      return;
+    }
+
+    offsetFunction = { source: fnSource, fn };
     res.statusCode = 200;
     res.end();
   } catch (err) {
@@ -232,12 +355,27 @@ async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
-function handleOffsetTestPut(res: ServerResponse) {
-  Object.keys(offsetCache).forEach((key) => {
-    delete offsetCache[key];
-  });
-  Object.assign(offsetCache, { test: "hello world!" });
-  sendJson(res, 200, { ok: true });
+async function handleOffsetTestPut(res: ServerResponse) {
+  const source = DEMO_OFFSET_FUNCTION;
+  try {
+    const fn = compileOffsetFunction(source);
+    const sampleServers = await getServerStatuses();
+    const originInfo = buildOriginInfo(
+      sampleServers,
+      version2Protocol("1.16.5")
+    );
+    const result = fn(originInfo, sampleServers);
+    const merged = mergeOverride(originInfo, result);
+    if (!isValidServerStatus(merged)) {
+      sendJson(res, 500, { error: "偏移函数测试结果格式不正确" });
+      return;
+    }
+    offsetFunction = { source, fn };
+    sendJson(res, 200, { ok: true, "__fn__": source });
+  } catch (error) {
+    log.error("偏移函数测试设置失败:", error);
+    sendJson(res, 500, { error: "偏移函数测试设置失败" });
+  }
 }
 
 function handleHealth(res: ServerResponse) {
@@ -309,7 +447,7 @@ export async function handleHttpRequest(
       return;
     }
     if (pathname === "/offset/testput" && method === "GET") {
-      handleOffsetTestPut(res);
+      await handleOffsetTestPut(res);
       return;
     }
     if (method === "GET" || method === "HEAD") {

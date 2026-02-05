@@ -14,12 +14,6 @@ importers:
       dayjs:
         specifier: ^1.11.19
         version: 1.11.19
-      dotenv:
-        specifier: ^17.2.3
-        version: 17.2.3
-      ini:
-        specifier: ^6.0.0
-        version: 6.0.0
       pino:
         specifier: ^10.3.0
         version: 10.3.0
@@ -36,9 +30,6 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
     devDependencies:
-      '@types/ini':
-        specifier: ^4.1.1
-        version: 4.1.1
       '@types/node':
         specifier: ^25.2.0
         version: 25.2.0
@@ -216,9 +207,6 @@ packages:
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
-  '@types/ini@4.1.1':
-    resolution: {integrity: sha512-MIyNUZipBTbyUNnhvuXJTY7B6qNI78meck9Jbv3wk0OgNwRyOOVEKDutAkOs1snB/tx0FafyR6/SN4Ps0hZPeg==}
-
   '@types/node@25.2.0':
     resolution: {integrity: sha512-DZ8VwRFUNzuqJ5khrvwMXHmvPe+zGayJhr2CDNiKB1WBE1ST8Djl00D0IC4vvNmHMdj6DlbYRIaFE7WHjlDl5w==}
 
@@ -247,10 +235,6 @@ packages:
   dayjs@1.11.19:
     resolution: {integrity: sha512-t5EcLVS6QPBNqM2z8fakk/NKel+Xzshgt8FFKAn+qwlD1pzZWxh0nVCrvFK7ZDb6XucZeF9z8C7CBWTRIVApAw==}
 
-  dotenv@17.2.3:
-    resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
-    engines: {node: '>=12'}
-
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
 
@@ -275,10 +259,6 @@ packages:
 
   help-me@5.0.0:
     resolution: {integrity: sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==}
-
-  ini@6.0.0:
-    resolution: {integrity: sha512-IBTdIkzZNOpqm7q3dRqJvMaldXjDHWkEDfrwGEQTs5eaQMWV+djAhR+wahyNNMAa+qpbDUhBMVt4ZKNwpPm7xQ==}
-    engines: {node: ^20.17.0 || >=22.9.0}
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
@@ -485,8 +465,6 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
-  '@types/ini@4.1.1': {}
-
   '@types/node@25.2.0':
     dependencies:
       undici-types: 7.16.0
@@ -513,8 +491,6 @@ snapshots:
   dateformat@4.6.3: {}
 
   dayjs@1.11.19: {}
-
-  dotenv@17.2.3: {}
 
   end-of-stream@1.4.5:
     dependencies:
@@ -561,8 +537,6 @@ snapshots:
       resolve-pkg-maps: 1.0.0
 
   help-me@5.0.0: {}
-
-  ini@6.0.0: {}
 
   isexe@2.0.0: {}
 

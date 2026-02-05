@@ -48,7 +48,6 @@ curl -sL https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon/master/docs/sc
 
 - **Node.js net/http**: 原生 TCP + HTTP 处理
 - **TypeScript**: `JavaScript` 的一个超集，增加了类型系统
-- **Dotenv**: 用于从 `.env` 文件加载环境变量
 - **Pino**: 日志系统
 - **LSP**: `MineCraft` 服务器状态获取协议
 
@@ -102,25 +101,9 @@ MC_HOST=bgp.mortar.top MC_PORT=25565 MC_VERSION=1.16.5 MC_OUT=test.json pnpm run
 
 ## 配置
 
-项目的配置主要通过两种方式进行管理：
+项目的配置通过配置文件进行管理：
 
 1. **配置文件**：项目的配置文件位于 `data/config.toml` 中。您可以根据需要修改这些配置，以适应不同的环境和需求。
-
-2. **环境变量**：为了更好地管理敏感信息和提高配置的灵活性，项目还支持通过 `.env` 文件来设置环境变量。`.env` 文件应该位于项目的根目录下，您可以在其中定义如数据库连接信息、API 密钥等敏感或环境特定的配置项。
-
-   使用 `.env` 文件的步骤如下：
-   - 在项目根目录下创建一个 `.env` 文件。
-   - 在 `.env` 文件中添加需要的环境变量，格式为 `KEY=VALUE`。例如：
-
-        ```
-        PORT=8080
-        HOST=localhost
-        LOGLEVEL=info
-        LOGFORMAT=combined
-        SERVERPORT=25565
-        ```
-
-   - 现在，您可以在项目中通过 `process.env` 对象访问这些环境变量了。
 
 ## 使用方式
 

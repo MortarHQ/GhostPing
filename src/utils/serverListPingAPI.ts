@@ -5,8 +5,44 @@ import varint from "varint";
 import { encodeProtocol } from "@utils/protocol-utils";
 import { config } from "../config/config_parser";
 import { ServerStatus, VERSION } from "@declare/delcare_const";
+import { getServerIcon } from "@utils/image-utils";
 
 const SERVERLIST = "/serverlist";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function buildFallbackStatus(protocolVersion: number): ServerStatus {
+  const fallback = JSON.parse(`{
+    "version": {
+        "name": "mortar",
+        "protocol": ${protocolVersion}
+    },
+    "favicon": "${getServerIcon()}",
+    "enforcesSecureChat": true,
+    "description": [],
+    "players": {
+        "max": 0,
+        "online": 0,
+        "sample": []
+    }
+  }`) as ServerStatus;
+
+  fallback.description = [
+    "",
+    { text: "Mortar", bold: true, color: "aqua" },
+    { text: " 全服在线人数统计", bold: true, color: "gold" },
+    {
+      text: "\n暂无可用服务器",
+      italic: true,
+      underlined: true,
+      color: "gray",
+    },
+  ];
+
+  return fallback;
+}
 
 class MinecraftProtocolHandler {
   private socket: Socket;
@@ -168,9 +204,13 @@ class MinecraftProtocolHandler {
           return [];
         });
 
+      const responsePayload = isRecord(serverList)
+        ? serverList
+        : buildFallbackStatus(protocolVersion);
+
       // 创建响应包并发送
       const responsePacket = createServerStatusPacket(
-        Buffer.from(JSON.stringify(serverList))
+        Buffer.from(JSON.stringify(responsePayload))
       );
 
       this.socket.write(new Uint8Array(responsePacket));

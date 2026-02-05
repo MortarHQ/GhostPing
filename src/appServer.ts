@@ -98,7 +98,8 @@ function isMainModule() {
   if (!mainPath) {
     return false;
   }
-  return import.meta.url === pathToFileURL(mainPath).href;
+  const normalizeUrl = (value: string) => value.split(/[?#]/)[0];
+  return normalizeUrl(import.meta.url) === normalizeUrl(pathToFileURL(mainPath).href);
 }
 
 if (isMainModule()) {

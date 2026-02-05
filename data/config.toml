@@ -1,0 +1,31 @@
+[[server_list]]
+host = "fun.mortar.top"
+port = "24445"
+version = "1.16.5"
+
+[[server_list]]
+host = "fun.mortar.top"
+port = "24446"
+version = "1.19.2"
+
+[[server_list]]
+host = "fun.mortar.top"
+port = "24447"
+version = "1.18.2"
+
+[[server_list]]
+host = "fun.mortar.top"
+port = "25565"
+version = "1.12.2"
+
+[[server_list]]
+host = "bgp.mortar.top"
+port = "25566"
+version = "1.20.4"
+
+[server]
+port = "25565"
+web_port = "25565"
+logLevel = "info"
+logFormat = "combined"
+host = "0.0.0.0"

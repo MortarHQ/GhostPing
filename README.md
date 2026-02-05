@@ -30,7 +30,7 @@ MD是一个轻量化的伪造的MineCraft服务端应用，利用LSP协议达成
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon/master/docs/scripts/install.bat" -OutFile "install.bat"; .\install.bat
 ```
 
-这条命令会自动从项目仓库下载安装脚本并立即执行它。
+这条命令会自动从项目仓库下载安装脚本并立即执行它（脚本内部使用 pnpm 安装依赖）。
 
 ### Linux
 
@@ -40,27 +40,25 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon
 curl -sL https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon/master/docs/scripts/install.sh > install.sh && bash install.sh
 ```
 
-这条命令会从您的项目仓库下载安装脚本并立即执行它。
+这条命令会从您的项目仓库下载安装脚本并立即执行它（脚本内部使用 pnpm 安装依赖）。
 
 **注意**：出于安全考虑，运行来自互联网的脚本之前，请确保您已经审核了脚本的内容。
 
 ## 主要技术栈
 
-- **Express**: 用于构建服务器端的 Web 应用
+- **Node.js net/http**: 原生 TCP + HTTP 处理
 - **TypeScript**: `JavaScript` 的一个超集，增加了类型系统
-- **Concurrently**: 用于同时运行多个命令
 - **Dotenv**: 用于从 `.env` 文件加载环境变量
+- **Pino**: 日志系统
 - **LSP**: `MineCraft` 服务器状态获取协议
 
 ## 项目结构
 
-- `app.ts` 和 `appServer.ts`: 应用程序和服务器端逻辑的主要入口点。
-- `test.json` 和 `test.ts`: 用于测试目的的文件。
-- `config` 目录: 包含应用程序配置设置的 `default.ts` 文件。
-- `middleware` 目录: 包含中间件函数的 TypeScript 文件。
-- `public` 目录: 包含静态资源，如主要的 HTML 和 CSS 文件。
-- `routes` 目录: 包含与路由和服务器端逻辑相关的 TypeScript 文件。
-- `utils` 目录: 包含实用函数和类。
+- `src/app.ts` 和 `src/appServer.ts`: HTTP 处理器与 TCP+HTTP 统一入口。
+- `src/mcClient.ts` 与 `test.json`: 模拟 Minecraft 客户端请求并输出结果。
+- `src/config` 目录: 配置解析逻辑。
+- `public` 目录: Web 控制台静态资源。
+- `src/utils` 目录: 工具函数与协议实现。
 
 ## 安装与运行
 
@@ -88,19 +86,25 @@ pnpm run dev
 pnpm start
 ```
 
-### 测试
+### 客户端请求
 
-要运行项目的测试，请执行：
+模拟 Minecraft 客户端访问任意服务端：
 
 ```bash
-pnpm test
+pnpm run mc:ping -- <host:port> --version 1.16.5
+```
+
+默认输出到 `test.json`。也可以通过环境变量指定：
+
+```bash
+MC_HOST=bgp.mortar.top MC_PORT=25565 MC_VERSION=1.16.5 MC_OUT=test.json pnpm run mc:ping
 ```
 
 ## 配置
 
 项目的配置主要通过两种方式进行管理：
 
-1. **配置文件**：项目的配置文件位于 `config` 目录下的 `default.ts` 中。您可以根据需要修改这些配置，以适应不同的环境和需求。
+1. **配置文件**：项目的配置文件位于 `data/config.toml` 中。您可以根据需要修改这些配置，以适应不同的环境和需求。
 
 2. **环境变量**：为了更好地管理敏感信息和提高配置的灵活性，项目还支持通过 `.env` 文件来设置环境变量。`.env` 文件应该位于项目的根目录下，您可以在其中定义如数据库连接信息、API 密钥等敏感或环境特定的配置项。
 

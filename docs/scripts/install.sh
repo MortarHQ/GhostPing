@@ -10,7 +10,8 @@ NC='\033[0m' # No Color
 COMMAND=$1
 REQUIRED_NODE_VERSION=20
 BUNDLED_NODE_VERSION=v20.11.0
-CURRENT_DIR=${PWD}
+PNPM_VERSION=9.0.0
+CURRENT_DIR=$(pwd)
 NODE_ZIP_DIR=${CURRENT_DIR}/node_${BUNDLED_NODE_VERSION}
 PROJECT_ZIP_URL="https://github.com/MortarHQ/Mortar-Daemon/archive/refs/heads/master.zip"
 PROJECT_DIR=${CURRENT_DIR}/Mortar-Daemon-master
@@ -45,8 +46,18 @@ Darwin*) OS=darwin ;;
     exit_on_error "不支持的操作系统。请尝试手动安装！"
     ;;
 esac
+# 体系结构检测
+ARCH=$(uname -m)
+case "$ARCH" in
+x86_64|amd64) NODE_ARCH=x64 ;;
+arm64|aarch64) NODE_ARCH=arm64 ;;
+*)
+    print_warning "未知架构 $ARCH，默认使用 x64"
+    NODE_ARCH=x64
+    ;;
+esac
 
-NODE_DIR=${NODE_ZIP_DIR}/node-${BUNDLED_NODE_VERSION}-${OS}-x64
+NODE_DIR=${NODE_ZIP_DIR}/node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}
 
 # 检测并安装必要的工具：curl 和 unzip
 for tool in curl unzip; do
@@ -108,17 +119,17 @@ if [ "$USE_SYSTEM_NODE" = false ]; then
         mkdir -p ${NODE_ZIP_DIR} || exit_on_error "创建 Node.js 目录失败"
         cd ${NODE_ZIP_DIR} || exit_on_error "无法进入 Node.js 目录"
         
-        if ! curl -O https://nodejs.org/dist/${BUNDLED_NODE_VERSION}/node-${BUNDLED_NODE_VERSION}-${OS}-x64.tar.gz; then
+        if ! curl -O https://nodejs.org/dist/${BUNDLED_NODE_VERSION}/node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz; then
             exit_on_error "下载 Node.js 失败"
         fi
 
         mkdir -p ${NODE_DIR} || exit_on_error "创建 Node.js 解压目录失败"
-        if ! tar -xzf node-${BUNDLED_NODE_VERSION}-${OS}-x64.tar.gz -C ${NODE_DIR} --strip-components=1; then
+        if ! tar -xzf node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz -C ${NODE_DIR} --strip-components=1; then
             exit_on_error "解压 Node.js 失败"
         fi
         
         # 清理下载的压缩包
-        rm -f node-${BUNDLED_NODE_VERSION}-${OS}-x64.tar.gz || print_warning "清理 Node.js 安装包失败，但将继续执行"
+        rm -f node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz || print_warning "清理 Node.js 安装包失败，但将继续执行"
         
         cd ${CURRENT_DIR} || exit_on_error "无法返回原始目录"
         print_info "Node.js ${BUNDLED_NODE_VERSION} 安装完成"
@@ -129,6 +140,29 @@ if [ "$USE_SYSTEM_NODE" = false ]; then
     # 设置环境变量使用下载的 Node.js
     export PATH=${NODE_DIR}/bin:${PATH}
 fi
+
+ensure_pnpm() {
+    if command -v pnpm &>/dev/null; then
+        print_info "检测到 pnpm $(pnpm -v)"
+        return
+    fi
+
+    if command -v corepack &>/dev/null; then
+        print_info "启用 Corepack 并安装 pnpm@${PNPM_VERSION}..."
+        if corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate; then
+            print_info "pnpm 已就绪"
+            return
+        fi
+        print_warning "Corepack 安装 pnpm 失败，尝试使用 npm 安装..."
+    fi
+
+    if ! command -v npm &>/dev/null; then
+        exit_on_error "未找到 npm，无法安装 pnpm"
+    fi
+    if ! npm install -g pnpm@${PNPM_VERSION}; then
+        exit_on_error "pnpm 安装失败"
+    fi
+}
 
 # 下载项目文件
 if [ ! -d "${PROJECT_DIR}" ]; then
@@ -147,10 +181,12 @@ fi
 
 cd $PROJECT_DIR || exit_on_error "无法进入项目目录"
 
+ensure_pnpm
+
 print_info "安装依赖..."
-if ! npm install; then
+if ! pnpm install; then
     print_warning "安装依赖失败，尝试重新安装..."
-    if ! npm install; then
+    if ! pnpm install; then
         exit_on_error "依赖安装失败，终止执行"
     fi
 fi
@@ -158,23 +194,23 @@ fi
 echo "=================================================="
 if [ "$COMMAND" == "start" ]; then
     print_info "尝试启动项目..."
-    if ! npm start; then
+    if ! pnpm start; then
         print_warning "启动失败，尝试重新安装依赖..."
-        if ! npm install; then
+        if ! pnpm install; then
             exit_on_error "依赖重新安装失败，终止执行"
         fi
-        if ! npm start; then
+        if ! pnpm start; then
             exit_on_error "项目启动失败，请检查错误日志"
         fi
     fi
 elif [ "$COMMAND" == "dev" ]; then
     print_info "尝试以开发模式启动项目..."
-    if ! npm run dev; then
+    if ! pnpm run dev; then
         print_warning "启动失败，尝试重新安装依赖..."
-        if ! npm install; then
+        if ! pnpm install; then
             exit_on_error "依赖重新安装失败，终止执行"
         fi
-        if ! npm run dev; then
+        if ! pnpm run dev; then
             exit_on_error "项目开发模式启动失败，请检查错误日志"
         fi
     fi

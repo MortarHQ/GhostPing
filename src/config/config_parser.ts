@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { parse as parseToml } from "toml";
 
 interface ServerListConfig {
   host: string;
@@ -23,60 +24,54 @@ export interface ParsedConfig {
 }
 
 function loadConfig(): ParsedConfig {
-  const configPath = path.join(process.cwd(), "data", "config.ini");
+  const configPath = path.join(process.cwd(), "data", "config.toml");
   const content = fs.readFileSync(configPath, "utf-8");
+  const parsed = parseToml(content) as Partial<ParsedConfig> & {
+    server?: Record<string, unknown>;
+    server_list?: unknown;
+  };
 
   const parsedData: ParsedConfig = {
     server_list: [],
     server: {
       port: "25565", // 默认端口
-      web_port: "8080", // 默认 web 端口
+      web_port: "25565", // 默认 web 端口
       logLevel: "info", // 默认日志级别
       logFormat: "combined", // 默认日志格式
       host: "0.0.0.0", // 默认主机
     },
   };
 
-  // 使用正则表达式更精确地匹配各个段落
-  const sectionRegex = /\[(.*?)\]([\s\S]*?)(?=\[|$)/g;
-  let match;
-
-  while ((match = sectionRegex.exec(content)) !== null) {
-    const sectionName = match[1].trim();
-    const sectionContent = match[2].trim();
-
-    if (sectionName === "server_list") {
-      const serverConfig: ServerListConfig = {
-        host: "",
-        port: "",
-        version: "",
-      };
-
-      // 解析每一行
-      const lines = sectionContent.split("\n").filter((line) => line.trim());
-      for (const line of lines) {
-        const [key, value] = line.split("=").map((part) => part.trim());
-        if (key && value) {
-          // 直接使用动态属性赋值
-          serverConfig[key] = value;
-        }
-      }
-
-      // 只有当有效的服务器配置时才添加
-      if (serverConfig.host && serverConfig.port) {
-        parsedData.server_list.push(serverConfig);
-      }
-    } else if (sectionName === "server") {
-      // 解析每一行
-      const lines = sectionContent.split("\n").filter((line) => line.trim());
-      for (const line of lines) {
-        const [key, value] = line.split("=").map((part) => part.trim());
-        if (key && value) {
-          // 直接使用动态属性赋值
-          parsedData.server[key] = value;
-        }
-      }
+  const rawServer = parsed.server ?? {};
+  for (const [key, value] of Object.entries(rawServer)) {
+    if (typeof value === "string" || typeof value === "number") {
+      parsedData.server[key] = String(value);
     }
+  }
+
+  const rawServerList = parsed.server_list;
+  const serverListArray = Array.isArray(rawServerList)
+    ? rawServerList
+    : rawServerList
+      ? [rawServerList]
+      : [];
+
+  for (const entry of serverListArray) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const candidate = entry as Record<string, unknown>;
+    const host = candidate.host;
+    const port = candidate.port;
+    const version = candidate.version;
+    if (!host || !port) {
+      continue;
+    }
+    parsedData.server_list.push({
+      host: String(host),
+      port: String(port),
+      version: version ? String(version) : "1.16.5",
+    });
   }
 
   return parsedData;

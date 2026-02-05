@@ -8,9 +8,12 @@ chcp 65001 > nul
 set "COMMAND=%1"
 set "REQUIRED_NODE_VERSION=20"
 set "BUNDLED_NODE_VERSION=v20.11.0"
+set "PNPM_VERSION=9.0.0"
 set "CURRENT_DIR=%CD%"
 set "NODE_ZIP_DIR=%CURRENT_DIR%\node_%BUNDLED_NODE_VERSION%"
-set "NODE_DIR=%NODE_ZIP_DIR%\node-%BUNDLED_NODE_VERSION%-win-x64"
+set "NODE_ARCH=win-x64"
+if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "NODE_ARCH=win-arm64"
+set "NODE_DIR=%NODE_ZIP_DIR%\node-%BUNDLED_NODE_VERSION%-%NODE_ARCH%"
 set "PROJECT_ZIP_URL=https://github.com/MortarHQ/Mortar-Daemon/archive/refs/heads/master.zip"
 set "PROJECT_DIR=%CURRENT_DIR%\Mortar-Daemon-master"
 
@@ -69,7 +72,7 @@ if "%USE_SYSTEM_NODE%"=="false" (
         
         :: 下载Node.js
         echo [信息] 正在下载Node.js...
-        powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://nodejs.org/dist/%BUNDLED_NODE_VERSION%/node-%BUNDLED_NODE_VERSION%-win-x64.zip' -OutFile 'node.zip'}"
+        powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://nodejs.org/dist/%BUNDLED_NODE_VERSION%/node-%BUNDLED_NODE_VERSION%-%NODE_ARCH%.zip' -OutFile 'node.zip'}"
         if not %errorlevel% == 0 (
             echo [错误] 下载Node.js失败。
             cd "%CURRENT_DIR%"
@@ -100,6 +103,10 @@ if "%USE_SYSTEM_NODE%"=="false" (
     :: 设置环境变量使用下载的Node.js
     set "PATH=%NODE_DIR%;%PATH%"
 )
+
+:: 确保 pnpm 可用
+call :ensurePnpm
+if not %errorlevel% == 0 goto :end
 
 :: 下载项目文件
 if not exist "%PROJECT_DIR%" (
@@ -139,10 +146,10 @@ if not %errorlevel% == 0 (
 )
 
 echo [信息] 正在安装依赖...
-call npm install
+call pnpm install
 if not %errorlevel% == 0 (
     echo [警告] 首次安装依赖失败，尝试重新安装...
-    call npm install
+    call pnpm install
     if not %errorlevel% == 0 (
         echo [错误] 依赖安装失败，终止执行。
         goto :end
@@ -152,15 +159,15 @@ if not %errorlevel% == 0 (
 echo ==================================================
 if "%COMMAND%"=="start" (
     echo [信息] 尝试启动项目...
-    call npm start
+    call pnpm start
     if not %errorlevel% == 0 (
         echo [警告] 启动失败，尝试重新安装依赖...
-        call npm install
+        call pnpm install
         if not %errorlevel% == 0 (
             echo [错误] 依赖重新安装失败，终止执行。
             goto :end
         )
-        call npm start
+        call pnpm start
         if not %errorlevel% == 0 (
             echo [错误] 项目启动失败，请检查错误日志。
             goto :end
@@ -168,15 +175,15 @@ if "%COMMAND%"=="start" (
     )
 ) else if "%COMMAND%"=="dev" (
     echo [信息] 尝试以开发模式启动项目...
-    call npm run dev
+    call pnpm run dev
     if not %errorlevel% == 0 (
         echo [警告] 启动失败，尝试重新安装依赖...
-        call npm install
+        call pnpm install
         if not %errorlevel% == 0 (
             echo [错误] 依赖重新安装失败，终止执行。
             goto :end
         )
-        call npm run dev
+        call pnpm run dev
         if not %errorlevel% == 0 (
             echo [错误] 项目开发模式启动失败，请检查错误日志。
             goto :end
@@ -195,3 +202,36 @@ echo ==================================================
 :end
 echo [信息] 脚本运行完成，即将退出...
 pause
+goto :eof
+
+:ensurePnpm
+where pnpm >nul 2>&1
+if %errorlevel% == 0 (
+    for /f "tokens=*" %%i in ('pnpm -v') do set "PNPM_VERSION_INSTALLED=%%i"
+    echo [信息] 检测到pnpm !PNPM_VERSION_INSTALLED!
+    exit /b 0
+)
+
+where corepack >nul 2>&1
+if %errorlevel% == 0 (
+    echo [信息] 正在启用Corepack并安装pnpm@%PNPM_VERSION%...
+    call corepack enable
+    if %errorlevel% == 0 (
+        call corepack prepare pnpm@%PNPM_VERSION% --activate
+        if %errorlevel% == 0 exit /b 0
+    )
+    echo [警告] Corepack安装pnpm失败，尝试使用npm安装...
+)
+
+where npm >nul 2>&1
+if not %errorlevel% == 0 (
+    echo [错误] 未找到npm，无法安装pnpm。
+    exit /b 1
+)
+
+call npm install -g pnpm@%PNPM_VERSION%
+if not %errorlevel% == 0 (
+    echo [错误] 安装pnpm失败。
+    exit /b 1
+)
+exit /b 0

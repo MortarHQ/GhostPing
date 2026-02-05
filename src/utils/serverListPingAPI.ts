@@ -184,7 +184,8 @@ class MinecraftProtocolHandler {
     log.info(`处理状态查询请求，来自: ${this.socket.remoteAddress}`);
     try {
       // 从API获取服务器列表
-      const rawHost = config.server.host || "localhost";
+      const rawHost =
+        config.server.web_host || config.server.host || "localhost";
       const fetchHost =
         rawHost === "0.0.0.0" || rawHost === "::" ? "127.0.0.1" : rawHost;
       const rawWebPort = config.server.web_port

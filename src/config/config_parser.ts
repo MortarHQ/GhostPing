@@ -12,6 +12,7 @@ interface ServerListConfig {
 interface ServerConfig {
   port: string;
   web_port?: string;
+  web_host?: string;
   logLevel?: string;
   logFormat?: string;
   host?: string;
@@ -39,6 +40,7 @@ function loadConfig(): ParsedConfig {
       logLevel: "info", // 默认日志级别
       logFormat: "combined", // 默认日志格式
       host: "0.0.0.0", // 默认主机
+      web_host: "127.0.0.1", // web默认监听地址
     },
   };
 

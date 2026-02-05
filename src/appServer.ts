@@ -9,7 +9,8 @@ import handleHttpRequest, { initOffsetStorage } from "./app";
 export type ServerHandles = {
   tcpServer: net.Server;
   httpServer: http.Server;
-  host: string;
+  tcpHost: string;
+  httpHost: string;
   tcpPort: number;
   httpPort: number;
 };
@@ -47,11 +48,13 @@ function createHttpServer() {
 }
 
 export function startServers(options?: {
-  host?: string;
+  tcpHost?: string;
+  httpHost?: string;
   tcpPort?: number;
   httpPort?: number;
 }): Promise<ServerHandles> {
-  const host = options?.host ?? config.server.host ?? "0.0.0.0";
+  const tcpHost = options?.tcpHost ?? config.server.host ?? "0.0.0.0";
+  const httpHost = options?.httpHost ?? config.server.web_host ?? "127.0.0.1";
   const rawTcpPort =
     options?.tcpPort ?? Number.parseInt(config.server.port, 10);
   const rawHttpPort = options?.httpPort
@@ -70,7 +73,7 @@ export function startServers(options?: {
     const onReady = () => {
       ready += 1;
       if (ready === 2) {
-        resolve({ tcpServer, httpServer, host, tcpPort, httpPort });
+        resolve({ tcpServer, httpServer, tcpHost, httpHost, tcpPort, httpPort });
       }
     };
 
@@ -88,8 +91,8 @@ export function startServers(options?: {
     tcpServer.once("listening", onReady);
     httpServer.once("listening", onReady);
 
-    tcpServer.listen(tcpPort, host);
-    httpServer.listen(httpPort, host);
+    tcpServer.listen(tcpPort, tcpHost);
+    httpServer.listen(httpPort, httpHost);
   });
 }
 
@@ -106,9 +109,9 @@ if (isMainModule()) {
   log.info("Starting server...");
   initOffsetStorage()
     .then(() => startServers())
-    .then(({ host, tcpPort, httpPort }) => {
-      log.info(`TCP 已启动，监听 ${host}:${tcpPort}`);
-      log.info(`HTTP 已启动，监听 http://${host}:${httpPort}`);
+    .then(({ tcpHost, httpHost, tcpPort, httpPort }) => {
+      log.info(`TCP 已启动，监听 ${tcpHost}:${tcpPort}`);
+      log.info(`HTTP 已启动，监听 http://${httpHost}:${httpPort}`);
     })
     .catch((err) => {
       log.error(`启动失败: ${err.message}`);

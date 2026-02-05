@@ -114,6 +114,7 @@ version = "1.16.5"
 [server]
 port = "25565"
 web_port = "24680"
+web_host = "127.0.0.1"
 host = "0.0.0.0"
 logLevel = "info"
 logFormat = "combined"
@@ -124,7 +125,12 @@ logFormat = "combined"
 - `server_list`: 要聚合的真实服务器列表（用于生成偏移输入数据）。
 - `server.port`: TCP 监听端口（Minecraft 客户端连接）。
 - `server.web_port`: Web 控制台端口（默认 `24680`）。
+- `server.web_host`: Web 控制台监听地址（默认 `127.0.0.1`）。
 - `server.host`: 监听地址。
+
+**安全警告**：Web 控制台可以执行偏移函数，这相当于在服务端执行 JavaScript。  
+强烈建议保持 `server.web_host = "127.0.0.1"`，避免外网访问。  
+将其改为 `0.0.0.0` 会直接暴露控制台到公网，存在高风险。
 
 ## 偏移函数（函数模式）
 

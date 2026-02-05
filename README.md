@@ -69,7 +69,7 @@ curl -sL https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon/master/docs/sc
 在项目根目录下运行以下命令安装依赖：
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 开发模式
@@ -77,7 +77,7 @@ npm install
 要在开发模式下运行前端和守护进程，请执行：
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ### 生产模式
@@ -85,7 +85,7 @@ npm run dev
 要在生产模式下运行前端和守护进程，请执行：
 
 ```bash
-npm start
+pnpm start
 ```
 
 ### 测试
@@ -93,7 +93,7 @@ npm start
 要运行项目的测试，请执行：
 
 ```bash
-npm test
+pnpm test
 ```
 
 ## 配置

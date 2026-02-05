@@ -3,11 +3,12 @@
   "version": "0.0.0",
   "private": false,
   "type": "module",
+  "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "start": "concurrently --names \"FRONT,DAEMON\" \"npm run start:frontend\" \"npm run start:daemon\"",
+    "start": "concurrently --names \"FRONT,DAEMON\" \"pnpm run start:frontend\" \"pnpm run start:daemon\"",
     "start:frontend": "cross-env NODE_ENV=production tsx -r tsconfig-paths/register src/bin/www",
     "start:daemon": "cross-env NODE_ENV=production tsx -r tsconfig-paths/register src/appServer.ts",
-    "dev": "concurrently --names \"FRONT,DAEMON\" \"npm run dev:frontend\" \"npm run dev:daemon\"",
+    "dev": "concurrently --names \"FRONT,DAEMON\" \"pnpm run dev:frontend\" \"pnpm run dev:daemon\"",
     "dev:frontend": "cross-env NODE_ENV=development tsx watch --clear-screen=false -r tsconfig-paths/register src/bin/www",
     "dev:daemon": "cross-env NODE_ENV=development tsx watch --clear-screen=false -r tsconfig-paths/register src/appServer.ts",
     "test": "cross-env NODE_ENV=test tsx -r tsconfig-paths/register src/test.ts"

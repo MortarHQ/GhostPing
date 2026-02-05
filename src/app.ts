@@ -33,7 +33,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const DEFAULT_OFFSET_FUNCTION = `(origin, servers) => {
+const DEFAULT_OFFSET_FUNCTION: OffsetFunction = (origin, servers) => {
   const totals = servers.reduce(
     (acc, server) => {
       const players = server?.players || {};
@@ -56,14 +56,15 @@ const DEFAULT_OFFSET_FUNCTION = `(origin, servers) => {
       { text: "Mortar", bold: true, color: "aqua" },
       { text: " 自定义偏移函数", bold: true, color: "gold" },
       {
-        text: "\\n当前为函数模式展示",
+        text: "\n当前为函数模式展示",
         italic: true,
         underlined: true,
         color: "gray",
       },
     ],
   };
-}`;
+};
+const DEFAULT_OFFSET_FUNCTION_SOURCE = DEFAULT_OFFSET_FUNCTION.toString();
 
 function setCorsHeaders(req: IncomingMessage, res: ServerResponse) {
   const { origin, Origin, referer, Referer } = req.headers;
@@ -219,10 +220,35 @@ function buildOriginInfo(
 }
 
 function mergeOverride(origin: ServerStatus, override: unknown) {
-  if (isRecord(override)) {
-    return Object.assign({}, origin, override);
+  if (!isRecord(override)) {
+    return origin;
   }
-  return origin;
+  return deepMerge(origin, override) as ServerStatus;
+}
+
+function deepMerge(base: unknown, patch: unknown): unknown {
+  if (!isRecord(base) || !isRecord(patch)) {
+    return patch === undefined ? base : patch;
+  }
+
+  const result: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      continue;
+    }
+    const baseValue = (base as Record<string, unknown>)[key];
+    if (isRecord(baseValue) && isRecord(value)) {
+      result[key] = deepMerge(baseValue, value);
+      continue;
+    }
+    if (Array.isArray(value)) {
+      result[key] = [...value];
+      continue;
+    }
+    result[key] = value;
+  }
+
+  return result;
 }
 
 function isValidServerStatus(value: unknown) {
@@ -313,7 +339,7 @@ async function initOffsetFunction() {
     }
 
     if (!source || !source.trim()) {
-      source = DEFAULT_OFFSET_FUNCTION;
+      source = DEFAULT_OFFSET_FUNCTION_SOURCE;
       await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
       await fs.promises.writeFile(OFFSET_FILE, source, "utf8");
     }
@@ -322,7 +348,7 @@ async function initOffsetFunction() {
       await applyAndPersistOffset(source, { persist: false });
     } catch (error) {
       log.error("偏移函数初始化失败，已回退到默认函数:", error);
-      await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION);
+      await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION_SOURCE);
     }
   })();
 
@@ -402,8 +428,8 @@ async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
 
 async function handleOffsetTestPut(res: ServerResponse) {
   try {
-    await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION);
-    sendJson(res, 200, { ok: true, "__fn__": DEFAULT_OFFSET_FUNCTION });
+    await applyAndPersistOffset(DEFAULT_OFFSET_FUNCTION_SOURCE);
+    sendJson(res, 200, { ok: true, "__fn__": DEFAULT_OFFSET_FUNCTION_SOURCE });
   } catch (error) {
     log.error("偏移函数测试设置失败:", error);
     sendJson(res, 500, { error: "偏移函数测试设置失败" });

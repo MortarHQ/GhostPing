@@ -1,19 +1,13 @@
-# Mortar Daemon
+# Ghost Ping
 
 ## 简介
 
-MD是一个轻量化的伪造的MineCraft服务端应用，利用LSP协议达成对客户端的各种显示效果。  
-![server status png](docs/img/ServerStatus.png)
-您只需要简单的修改JSON信息即可创建一个高度自定义的状态信息！
+GP 是一个轻量化的幽灵 MineCraft 服务端应用，利用 List Ping 协议达成对客户端的各种显示效果。  
+现在支持使用 **JavaScript 函数** 做偏移与重载，可以对服务端列表进行聚合与再加工。
 
-``` JSON
-{
-  "players": {
-    "max": -300,
-    "online": -300
-  }
-}
-```  
+![Web 控制台示例](docs/img/main.jpg)
+
+![server status png](docs/img/ServerStatus.png)
 
 ***修改后***：
 ![server status png](docs/img/ServerStatus~1.png)
@@ -27,7 +21,7 @@ MD是一个轻量化的伪造的MineCraft服务端应用，利用LSP协议达成
 在Windows系统中，您可以通过运行以下PowerShell命令来启动安装过程：
 
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon/master/docs/scripts/install.bat" -OutFile "install.bat"; .\install.bat
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/MortarHQ/GhostPing/master/docs/scripts/install.bat" -OutFile "install.bat"; .\install.bat
 ```
 
 这条命令会自动从项目仓库下载安装脚本并立即执行它（脚本内部使用 pnpm 安装依赖）。
@@ -37,7 +31,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon
 在Linux系统中，您可以使用以下命令来一键安装：
 
 ```bash
-curl -sL https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon/master/docs/scripts/install.sh > install.sh && bash install.sh
+curl -sL https://raw.githubusercontent.com/MortarHQ/GhostPing/master/docs/scripts/install.sh > install.sh && bash install.sh
 ```
 
 这条命令会从您的项目仓库下载安装脚本并立即执行它（脚本内部使用 pnpm 安装依赖）。
@@ -58,6 +52,7 @@ curl -sL https://raw.githubusercontent.com/MortarHQ/Mortar-Daemon/master/docs/sc
 - `src/config` 目录: 配置解析逻辑。
 - `public` 目录: Web 控制台静态资源。
 - `src/utils` 目录: 工具函数与协议实现。
+- `data/offset.fn.js`: 偏移函数文件（由服务端启动时自动创建/读取）。
 
 ## 安装与运行
 
@@ -99,30 +94,97 @@ pnpm run mc:ping -- <host:port> --version 1.16.5
 MC_HOST=bgp.mortar.top MC_PORT=25565 MC_VERSION=1.16.5 MC_OUT=test.json pnpm run mc:ping
 ```
 
-## 配置
+## 配置文件
 
-项目的配置通过配置文件进行管理：
+项目配置位于 `data/config.toml`，修改后重启生效。
 
-1. **配置文件**：项目的配置文件位于 `data/config.toml` 中。您可以根据需要修改这些配置，以适应不同的环境和需求。
-   - `server.port`: Minecraft TCP 端口，默认 `25565`
-   - `server.web_port`: Web 控制台端口，默认 `24680`
-   - `data/offset.fn.js`: 偏移函数脚本，服务端启动时自动读取/写入
+示例：
 
-## 使用方式
+```toml
+[[server_list]]
+host = "fun.mortar.top"
+port = "25565"
+version = "1.16.5"
 
-本 web 控制台提供了一个直观的界面，用于管理和监控 Minecraft 服务器的状态。以下是如何使用此控制台的步骤：
+# [[server_list]]
+# host = "minecraft.net"
+# port = "25565"
+# version = "1.20.4"
 
-1. **访问控制台**：在浏览器中输入部署此应用的服务器地址，即可访问 web 控制台。
+[server]
+port = "25565"
+web_port = "24680"
+host = "0.0.0.0"
+logLevel = "info"
+logFormat = "combined"
+```
 
-2. **编辑偏移值**：在控制台的偏移区域，您可以直接编辑当前的偏移值（`offset`）。该值以 JSON 格式展示，确保您输入的是有效的 JSON 数据。
+说明：
 
-3. **提交偏移值**：编辑完成后，点击“提交偏移”按钮以更新服务器上的偏移值。如果输入的数据格式不正确，将收到“不符合json文本！”的错误提示。如果数据未发生变化，将提示“没有发生变化”。
+- `server_list`: 要聚合的真实服务器列表（用于生成偏移输入数据）。
+- `server.port`: TCP 监听端口（Minecraft 客户端连接）。
+- `server.web_port`: Web 控制台端口（默认 `24680`）。
+- `server.host`: 监听地址。
 
-4. **重置偏移值**：若需撤销对偏移值的更改，点击“重置偏移”按钮。系统将恢复到您最近一次提交的偏移值。
+## 偏移函数（函数模式）
 
-5. **查看服务器列表**：控制台还展示了当前的服务器列表（`serverList`），以 JSON 格式呈现，让您能够快速查看当前伪造的服务器状态。
+偏移函数存放在 `data/offset.fn.js`，服务端启动时会自动读取，不存在则写入默认模板。  
+函数签名：
 
-通过这个控制台，用户可以轻松地管理 Minecraft 服务器的偏移值和查看服务器状态，实现对服务器状态的实时监控和调整。
+```js
+(origin, servers) => {
+  // origin: 聚合后的基准对象（已包含版本、玩家、描述、图标等）
+  // servers: server_list 中成功获取的状态列表
+  return {
+    // 返回的字段会合并到 origin 中
+  };
+}
+```
+
+一个示例：
+
+```js
+(origin, servers) => {
+  const totals = servers.reduce(
+    (acc, s) => {
+      const online = typeof s?.players?.online === "number" ? s.players.online : 0;
+      const max = typeof s?.players?.max === "number" ? s.players.max : 0;
+      acc.online += online;
+      acc.max += max;
+      return acc;
+    },
+    { online: 0, max: 0 }
+  );
+
+  return {
+    players: {
+      online: totals.online,
+      max: totals.max,
+    },
+    description: [
+      "",
+      { text: "Mortar", bold: true, color: "aqua" },
+      { text: `\\n聚合 ${servers.length} 个服务器`, color: "gray" },
+    ],
+  };
+}
+```
+
+服务端会用模拟的 server_list 结果验证函数返回值结构，校验通过后才会生效并写入 `data/offset.fn.js`。
+
+## Web 控制台使用方式
+
+浏览器访问：`http://<host>:24680`。
+
+建议使用流程：
+
+1. 点击“获取服务端函数”，加载当前生效的偏移函数。
+2. 在“函数内容（JavaScript）”中编辑或粘贴你的函数。
+3. 点击“应用函数”，服务端验证通过后即刻生效，并保存到 `data/offset.fn.js`。
+4. 点击“刷新预览”，查看 Minecraft 预览卡片。
+5. 点击卡片右上角“显示源格式”，可查看原始 JSON 并复制。
+
+提示：偏移函数只需要返回 **要覆盖的部分**，系统会将其合并到默认的 `origin` 基准对象中。
 
 ## 贡献
 
@@ -130,7 +192,7 @@ MC_HOST=bgp.mortar.top MC_PORT=25565 MC_VERSION=1.16.5 MC_OUT=test.json pnpm run
 
 ## 许可信息
 
-[待添加]
+NONE
 
 ---
 

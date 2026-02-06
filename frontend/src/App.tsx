@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Clipboard,
   Code2,
+  FileCode2,
   LoaderCircle,
   Moon,
   RefreshCcw,
@@ -19,8 +20,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import {
+  ensureOffsetTypedSource,
+  OffsetFunctionEditor,
+  type OffsetFunctionEditorHandle,
+} from "@/components/offset-function-editor";
 
 const COLOR_MAP: Record<string, string> = {
   black: "#000000",
@@ -52,7 +57,7 @@ function StatusBar({ text, tone }: { text: string; tone: "info" | "error" | "suc
 }
 
 export default function App() {
-  const [source, setSource] = useState("");
+  const [source, setSource] = useState(() => ensureOffsetTypedSource(""));
   const [serverData, setServerData] = useState<ServerStatus | null>(null);
   const [rawOpen, setRawOpen] = useState(false);
   const [themeDark, setThemeDark] = useState(false);
@@ -66,6 +71,7 @@ export default function App() {
     load: false,
     demo: false,
   });
+  const editorHandleRef = useRef<OffsetFunctionEditorHandle | null>(null);
 
   useEffect(() => {
     const isDark =
@@ -103,7 +109,7 @@ export default function App() {
     setLoading((v) => ({ ...v, load: true }));
     try {
       const data = await getOffsetFn();
-      setSource(data.__fn__ ?? "");
+      setSource(ensureOffsetTypedSource(data.__fn__ ?? ""));
       setFeedback("已同步服务器函数", "success");
     } catch (error) {
       setFeedback(`加载失败: ${String(error)}`, "error");
@@ -113,7 +119,11 @@ export default function App() {
   }
 
   async function handleApply() {
-    const value = source.trim();
+    await applySource(source);
+  }
+
+  async function applySource(nextSource: string) {
+    const value = nextSource.trim();
     if (!value) {
       setFeedback("函数内容不能为空", "error");
       return;
@@ -134,7 +144,7 @@ export default function App() {
     setLoading((v) => ({ ...v, demo: true }));
     try {
       const data = await loadDemoFn();
-      setSource(data.__fn__ ?? "");
+      setSource(ensureOffsetTypedSource(data.__fn__ ?? ""));
       setFeedback("示例函数已导入", "success");
     } catch (error) {
       setFeedback(`示例导入失败: ${String(error)}`, "error");
@@ -238,14 +248,32 @@ export default function App() {
                   <Code2 size={14} />
                   导入示例
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    void editorHandleRef.current?.format();
+                  }}
+                >
+                  <FileCode2 size={14} />
+                  格式化
+                </Button>
               </div>
-              <Textarea
+              <OffsetFunctionEditor
                 value={source}
-                onChange={(e) => setSource(e.target.value)}
-                spellCheck={false}
-                className="min-h-[330px] resize-y font-mono text-xs md:text-sm"
-                placeholder="export default (origin, servers) => ({ players: { online: 0, max: 0 } })"
+                onChange={setSource}
+                dark={themeDark}
+                onSaveShortcut={(latestSource) => {
+                  setSource(latestSource);
+                  void applySource(latestSource);
+                }}
+                onReady={(handle) => {
+                  editorHandleRef.current = handle;
+                }}
               />
+              <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
+                VS Code 编辑器已启用，支持 JS 智能提示、类型检查与格式化。
+              </p>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <StatusBar text={status.text} tone={status.tone} />
                 <Button onClick={handleApply} disabled={loading.apply}>

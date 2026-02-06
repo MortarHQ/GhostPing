@@ -118,7 +118,7 @@ if errorlevel 1 call :fail "下载版本清单失败。"
 
 set "RESOLVED_VERSION="
 set "RESOLVED_COMMIT="
-for /f "usebackq tokens=1,2 delims=|" %%A in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$m = Get-Content -Raw '%MANIFEST_FILE%' | ConvertFrom-Json; $requested = '%REQUESTED_VERSION%'; if ([string]::IsNullOrWhiteSpace($requested) -or $requested -eq 'latest') { $request = $m.latest } else { $request = $requested }; $versions = $m.versions; if ($null -eq $versions) { Write-Error 'missing versions'; exit 4 }; $candidates = @(); if (-not [string]::IsNullOrWhiteSpace($request)) { $candidates += $request; if ($request.StartsWith('v')) { $candidates += $request.Substring(1) } else { $candidates += ('v' + $request) } }; $version = $null; foreach ($candidate in $candidates) { if ($versions.PSObject.Properties.Name -contains $candidate) { $version = $candidate; break } }; if ([string]::IsNullOrWhiteSpace($version)) { Write-Error 'version not found'; exit 2 }; $entry = $versions.$version; if ([string]::IsNullOrWhiteSpace($entry.commit)) { Write-Error 'missing commit'; exit 3 }; Write-Output ($version + '|' + $entry.commit)"`) do (
+for /f "usebackq tokens=1,2 delims=|" %%A in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$m = Get-Content -Raw '%MANIFEST_FILE%' | ConvertFrom-Json; $requested = '%REQUESTED_VERSION%'; if ([string]::IsNullOrWhiteSpace($requested) -or $requested -eq 'latest') { $request = $m.latest } else { $request = $requested }; $versions = $m.versions; if ($null -eq $versions) { Write-Error 'missing versions'; exit 4 }; if ([string]::IsNullOrWhiteSpace($request)) { Write-Error 'version not found'; exit 2 }; if ($request.StartsWith('v')) { $version = $request } else { $version = ('v' + $request) }; $entry = $versions.$version; if ($null -eq $entry) { Write-Error 'version not found'; exit 2 }; if ([string]::IsNullOrWhiteSpace($entry.commit)) { Write-Error 'missing commit'; exit 3 }; Write-Output ($version + '|' + $entry.commit)"`) do (
     set "RESOLVED_VERSION=%%A"
     set "RESOLVED_COMMIT=%%B"
 )
@@ -220,7 +220,7 @@ echo   install.bat [start^|dev] [-v^|--version ^<version^|latest^>] [-n^|--node-
 echo.
 echo 参数:
 echo   start^|dev              可选，安装完成后直接启动
-echo   -v, --version          指定 GhostPing 版本，默认 latest
+echo   -v, --version          指定 GhostPing 版本，默认 latest（可用 0.0.1 或 v0.0.1）
 echo   -n, --node-version     指定 Node 版本，默认 v20.11.0
 echo   -h, --help             显示此帮助
 exit /b 0

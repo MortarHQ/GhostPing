@@ -47,7 +47,7 @@ print_usage() {
 
 参数:
   start|dev                 可选，安装完成后直接启动
-  -v, --version             指定 GhostPing 版本，默认 latest
+  -v, --version             指定 GhostPing 版本，默认 latest（可用 0.0.1 或 v0.0.1）
   -n, --node-version        指定 Node 版本，默认 v20.11.0
   -h, --help                显示此帮助
 EOF
@@ -176,14 +176,12 @@ const requested = process.argv[2];
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 const versions = manifest.versions || {};
 const request = !requested || requested === "latest" ? manifest.latest : requested;
-const candidates = [request];
-if (request && request.startsWith("v")) {
-  candidates.push(request.slice(1));
-} else if (request) {
-  candidates.push(`v${request}`);
-}
-const version = candidates.find((item) => item && versions[item]);
+const version = request ? (request.startsWith("v") ? request : `v${request}`) : "";
 if (!version) {
+  process.stderr.write("指定版本不存在\n");
+  process.exit(2);
+}
+if (!versions[version]) {
   process.stderr.write("指定版本不存在\n");
   process.exit(2);
 }

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const semverTagPattern = /^v?\d+\.\d+\.\d+$/;
+const semverTagPattern = /^v\d+\.\d+\.\d+$/;
 
 function printUsage() {
   console.log("Usage: node .github/scripts/generate-version-manifest.mjs [--check] [--repo <owner/repo>] [--out <path>]");

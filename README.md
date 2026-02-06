@@ -15,7 +15,8 @@ GP 是一个轻量化的幽灵 MineCraft 服务端应用，利用 List Ping 协�
 ## 一键安装
 
 为了简化安装过程，特别提供了一键安装脚本，适用于 Windows 和 Linux 系统。  
-安装脚本不会再直接拉取分支最新代码，而是读取版本清单并拉取**已打 tag 的稳定版本**。
+安装脚本读取版本清单并拉取稳定版本。  
+**注意运行来自互联网的脚本之前，请确保您已经审核了脚本的内容。**
 
 ### Windows
 
@@ -25,8 +26,6 @@ GP 是一个轻量化的幽灵 MineCraft 服务端应用，利用 List Ping 协�
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/MortarHQ/GhostPing/master/docs/scripts/install.bat" -OutFile "install.bat"; .\install.bat
 ```
 
-这条命令会自动从项目仓库下载安装脚本并立即执行（脚本内部使用 pnpm 安装依赖）。
-
 ### Linux
 
 在Linux系统中，您可以使用以下命令来一键安装：
@@ -35,26 +34,24 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/MortarHQ/GhostPing/mas
 curl -sL https://raw.githubusercontent.com/MortarHQ/GhostPing/master/docs/scripts/install.sh > install.sh && bash install.sh
 ```
 
-这条命令会从项目仓库下载安装脚本并立即执行（脚本内部使用 pnpm 安装依赖）。
-
 ### 一键安装参数
 
 安装脚本支持下列参数：
 
 - `start|dev`: 可选，安装完成后直接启动服务。
-- `-v, --version <version|latest>`: 指定 GhostPing 版本，默认 `latest`。
+- `-v, --version <version|latest>`: 指定 GhostPing 版本，默认 `latest`，支持 `0.0.1` 或 `v0.0.1`。
 - `-n, --node-version <nodeVersion>`: 指定 Node 版本，默认 `v20.11.0`。
 
 Windows 示例：
 
-- 指定版本：`install.bat --version 0.0.1`
-- 指定 Node 版本：`install.bat --node-version v22.14.0`
+- 指定版本：`install.bat --v 0.0.1`
+- 指定 Node 版本：`install.bat --n v22.14.0`
 - 同时指定并启动开发模式：`install.bat dev -v 0.0.1 -n v22.14.0`
 
 Linux 示例：
 
-- 指定版本：`bash install.sh --version 0.0.1`
-- 指定 Node 版本：`bash install.sh --node-version v22.14.0`
+- 指定版本：`bash install.sh --v 0.0.1`
+- 指定 Node 版本：`bash install.sh --n v22.14.0`
 - 同时指定并启动开发模式：`bash install.sh dev -v 0.0.1 -n v22.14.0`
 
 ### 安装目录结构
@@ -68,14 +65,13 @@ Linux 示例：
 
 ### 版本清单自动更新（维护者）
 
-- 打发布标签：`git tag 0.0.2`
-- 推送标签：`git push origin 0.0.2`
+- 版本标签规范：`vX.Y.Z`（例如 `v0.0.2`）
+- 打发布标签：`git tag v0.0.2`
+- 推送标签：`git push origin v0.0.2`
 - GitHub Actions 会自动执行 `Update Version Manifest`，读取仓库所有语义化 tag 并更新 `docs/releases/versions.json`
 - 安装脚本里的 `--version latest` 会自动使用清单中的 `latest`
 - 如需手动重建清单：在仓库执行 `pnpm run release:manifest`
 - 如需校验清单是否过期：在仓库执行 `pnpm run release:manifest:check`
-
-**注意**：出于安全考虑，运行来自互联网的脚本之前，请确保您已经审核了脚本的内容。
 
 ## 主要技术栈
 
@@ -127,7 +123,7 @@ logFormat = "combined"
 - `server.web_port`: Web 控制台端口（默认 `24680`）。
 - `server.web_host`: Web 控制台监听地址（默认 `127.0.0.1`）。
 
-**安全警告💳**：Web 控制台可以执行偏移函数，这相当于在服务端执行 JavaScript。  
+**安全警告**：Web 控制台应用的偏移函数会直接在服务端执行 JavaScript。  
 强烈建议保持 `server.web_host = "127.0.0.1"`，避免外网访问。  
 将其改为 `0.0.0.0` 会直接暴露控制台到公网，存在高风险。
 
@@ -192,14 +188,6 @@ export default (origin, servers) => {
 
 提示：偏移函数只需要返回 **要覆盖的部分**，系统会将其合并到默认的 `origin` 基准对象中。
 
-## 贡献
-
-欢迎通过 Pull Requests 或 Issues 来贡献您的代码或提出您的建议。
-
-## 许可信息
-
-NONE
-
 ## 手动安装与运行（可选）
 
 ### 安装依赖
@@ -240,6 +228,8 @@ pnpm run mc:ping -- <host:port> --version 1.16.5
 MC_HOST=bgp.mortar.top MC_PORT=25565 MC_VERSION=1.16.5 MC_OUT=test.json pnpm run mc:ping
 ```
 
----
+## 贡献
+
+欢迎通过 Pull Requests 或 Issues 来贡献您的代码或提出您的建议。
 
 感谢您对本项目的关注，希望它能帮助您更好地了解和使用Minecraft List Ping协议

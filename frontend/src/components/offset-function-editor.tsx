@@ -4,6 +4,7 @@ import type * as MonacoEditor from "monaco-editor";
 
 const OFFSET_TYPES_URI = "file:///ghostping/offset-types.d.ts";
 const OFFSET_MODEL_URI = "file:///ghostping/offset.fn.js";
+const FORMAT_MARKER_OWNER = "ghostping-format";
 
 const OFFSET_TYPE_DEFS = `
 declare namespace GhostPing {
@@ -129,6 +130,32 @@ export function OffsetFunctionEditor({
     ) => {
       editorRef.current = editor;
 
+      const setFormatErrorMarker = (message: string) => {
+        const model = editor.getModel();
+        if (!model) {
+          return;
+        }
+        const position = editor.getPosition() ?? { lineNumber: 1, column: 1 };
+        monaco.editor.setModelMarkers(model, FORMAT_MARKER_OWNER, [
+          {
+            severity: monaco.MarkerSeverity.Warning,
+            message,
+            startLineNumber: position.lineNumber,
+            startColumn: position.column,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column + 1,
+          },
+        ]);
+      };
+
+      const clearFormatErrorMarker = () => {
+        const model = editor.getModel();
+        if (!model) {
+          return;
+        }
+        monaco.editor.setModelMarkers(model, FORMAT_MARKER_OWNER, []);
+      };
+
       editor.addAction({
         id: "ghostping.apply-offset",
         label: "Apply Offset Function",
@@ -141,8 +168,19 @@ export function OffsetFunctionEditor({
       onReady?.({
         format: async () => {
           const action = editor.getAction("editor.action.formatDocument");
-          if (action) {
+          if (!action) {
+            const message = "Monaco 格式化器未就绪";
+            setFormatErrorMarker(message);
+            throw new Error(message);
+          }
+          try {
             await action.run();
+            clearFormatErrorMarker();
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "格式化执行失败";
+            setFormatErrorMarker(message);
+            throw new Error(message);
           }
         },
       });

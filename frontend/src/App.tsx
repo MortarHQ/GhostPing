@@ -122,6 +122,20 @@ export default function App() {
     await applySource(source);
   }
 
+  async function handleFormat() {
+    if (!editorHandleRef.current) {
+      setFeedback("编辑器尚未就绪", "error");
+      return;
+    }
+    try {
+      await editorHandleRef.current.format();
+      setFeedback("代码已格式化", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setFeedback(`格式化失败: ${message}`, "error");
+    }
+  }
+
   async function applySource(nextSource: string) {
     const value = nextSource.trim();
     if (!value) {
@@ -252,7 +266,7 @@ export default function App() {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    void editorHandleRef.current?.format();
+                    void handleFormat();
                   }}
                 >
                   <FileCode2 size={14} />

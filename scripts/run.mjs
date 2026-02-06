@@ -56,6 +56,7 @@ if (env) {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const entryPath = path.isAbsolute(entry) ? entry : path.resolve(repoRoot, entry);
+const watchExcludePath = path.resolve(repoRoot, "data", "offset.fn.js");
 
 if (!existsSync(entryPath)) {
   console.error(`Entry not found: ${entryPath}`);
@@ -71,6 +72,8 @@ const run = async () => {
         cliPath,
         "watch",
         "--clear-screen=false",
+        "--exclude",
+        watchExcludePath,
         entryPath,
         ...(passThrough.length ? ["--", ...passThrough] : []),
       ],

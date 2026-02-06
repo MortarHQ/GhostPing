@@ -244,7 +244,7 @@ export default function App() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>偏移函数</CardTitle>
@@ -298,7 +298,7 @@ export default function App() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>预览效果</CardTitle>

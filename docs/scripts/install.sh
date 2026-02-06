@@ -3,32 +3,11 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-# 设置颜色输出
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# 接收参数
-COMMAND=${1:-}
-REQUIRED_NODE_VERSION=20
-BUNDLED_NODE_VERSION=v20.11.0
-PNPM_VERSION=9.0.0
-CURRENT_DIR=$(pwd)
-PROJECT_NAME="GhostPing"
-PROJECT_REPO="MortarHQ/GhostPing"
-PROJECT_BRANCH="master"
-PROJECT_ZIP_URL="https://github.com/${PROJECT_REPO}/archive/refs/heads/${PROJECT_BRANCH}.zip"
-PROJECT_DIR="${CURRENT_DIR}/${PROJECT_NAME}-${PROJECT_BRANCH}"
-NODE_ZIP_DIR="${CURRENT_DIR}/node_${BUNDLED_NODE_VERSION}"
-
-# 设置错误退出函数
-exit_on_error() {
-    print_error "$1"
-    exit 1
-}
-
-# 打印带颜色的消息
 print_info() {
     echo -e "${GREEN}[信息] $1${NC}"
 }
@@ -41,193 +20,228 @@ print_error() {
     echo -e "${RED}[错误] $1${NC}"
 }
 
-# 未处理错误时立即退出
-trap 'print_error "脚本发生未处理错误，请检查输出"; exit 1' ERR
-# 安全性提醒
-print_info "此脚本需要安装 curl 和 unzip。请确保你已经安装了这些工具，或者有足够的权限来安装它们。"
+exit_on_error() {
+    print_error "$1"
+    exit 1
+}
 
-# 系统检测
+trap 'print_error "脚本发生未处理错误，请检查输出"; exit 1' ERR
+
+COMMAND=""
+REQUESTED_VERSION="${GP_VERSION:-latest}"
+BUNDLED_NODE_VERSION="${GP_NODE_VERSION:-v20.11.0}"
+REQUIRED_NODE_VERSION=20
+PNPM_VERSION=9.0.0
+PROJECT_REPO="MortarHQ/GhostPing"
+MANIFEST_URL="https://raw.githubusercontent.com/${PROJECT_REPO}/master/docs/releases/versions.json"
+CURRENT_DIR="$(pwd)"
+INSTALL_ROOT="${CURRENT_DIR}/ghostping"
+NODE_ROOT="${INSTALL_ROOT}/node"
+VERSIONS_ROOT="${INSTALL_ROOT}/versions"
+MANIFEST_CACHE="${INSTALL_ROOT}/versions.json"
+
+print_usage() {
+    cat <<EOF
+用法:
+  bash install.sh [start|dev] [-v|--version <version|latest>] [-n|--node-version <nodeVersion>]
+
+参数:
+  start|dev                 可选，安装完成后直接启动
+  -v, --version             指定 GhostPing 版本，默认 latest
+  -n, --node-version        指定 Node 版本，默认 v20.11.0
+  -h, --help                显示此帮助
+EOF
+}
+
+parse_args() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            start|dev)
+                if [ -n "${COMMAND}" ]; then
+                    exit_on_error "命令重复：${COMMAND} 与 $1"
+                fi
+                COMMAND="$1"
+                shift
+                ;;
+            -v|--version)
+                [ "$#" -ge 2 ] || exit_on_error "$1 缺少版本参数"
+                REQUESTED_VERSION="$2"
+                shift 2
+                ;;
+            -n|--node-version)
+                [ "$#" -ge 2 ] || exit_on_error "$1 缺少 Node 版本参数"
+                BUNDLED_NODE_VERSION="$2"
+                shift 2
+                ;;
+            -h|--help)
+                print_usage
+                exit 0
+                ;;
+            *)
+                exit_on_error "未知参数: $1"
+                ;;
+        esac
+    done
+}
+
+parse_args "$@"
+
+if [[ "${BUNDLED_NODE_VERSION}" != v* ]]; then
+    BUNDLED_NODE_VERSION="v${BUNDLED_NODE_VERSION}"
+fi
+
+print_info "此脚本将创建目录：${INSTALL_ROOT}"
+mkdir -p "${INSTALL_ROOT}" "${NODE_ROOT}" "${VERSIONS_ROOT}"
+
 case "$(uname -s)" in
 Linux*) OS=linux ;;
 Darwin*) OS=darwin ;;
-*)
-    exit_on_error "不支持的操作系统。请尝试手动安装！"
-    ;;
+*) exit_on_error "不支持的操作系统。" ;;
 esac
-# 体系结构检测
-ARCH=$(uname -m)
-case "$ARCH" in
+
+ARCH="$(uname -m)"
+case "${ARCH}" in
 x86_64|amd64) NODE_ARCH=x64 ;;
 arm64|aarch64) NODE_ARCH=arm64 ;;
 *)
-    print_warning "未知架构 $ARCH，默认使用 x64"
+    print_warning "未知架构 ${ARCH}，默认使用 x64"
     NODE_ARCH=x64
     ;;
 esac
 
-NODE_DIR="${NODE_ZIP_DIR}/node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}"
+NODE_DIR="${NODE_ROOT}/node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}"
 
-# 检测并安装必要的工具：curl 和 unzip
 for tool in curl unzip; do
-    if ! command -v $tool &>/dev/null; then
-        print_warning "$tool 未安装。尝试安装..."
-        # 跨平台支持
-        case "$(uname -s)" in
-        Linux*)
-            if [ -f /etc/debian_version ]; then
-                sudo apt-get install $tool -y || exit_on_error "安装 $tool 失败"
-            elif [ -f /etc/redhat-release ]; then
-                sudo yum install $tool -y || exit_on_error "安装 $tool 失败"
-            else
-                exit_on_error "不支持的 Linux 发行版。请手动安装 $tool。"
-            fi
-            ;;
-        Darwin*)
-            brew install $tool || exit_on_error "安装 $tool 失败"
-            ;;
-        *)
-            exit_on_error "不支持的操作系统。请手动安装 $tool。"
-            ;;
-        esac
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+        exit_on_error "缺少依赖：${tool}，请先安装后重试。"
     fi
 done
 
-# 检查系统是否已安装 Node.js
 USE_SYSTEM_NODE=false
-if command -v node &>/dev/null; then
-    NODE_VERSION=$(node -v)
-    print_info "检测到系统已安装 Node.js ${NODE_VERSION}"
-    
-    # 去除版本号中的 'v' 前缀用于比较
-    VERSION_NUMBER=${NODE_VERSION#v}
-    MAJOR_VERSION=$(echo $VERSION_NUMBER | cut -d. -f1)
-    
-    if [ "$MAJOR_VERSION" -ge $REQUIRED_NODE_VERSION ]; then
-        print_info "系统 Node.js 版本满足要求（>= v${REQUIRED_NODE_VERSION}）"
+if command -v node >/dev/null 2>&1; then
+    NODE_VERSION="$(node -v)"
+    VERSION_NUMBER="${NODE_VERSION#v}"
+    MAJOR_VERSION="$(echo "${VERSION_NUMBER}" | cut -d. -f1)"
+    print_info "检测到系统 Node.js ${NODE_VERSION}"
+    if [ "${MAJOR_VERSION}" -ge "${REQUIRED_NODE_VERSION}" ]; then
         USE_SYSTEM_NODE=true
     else
-        print_warning "系统 Node.js 版本（${NODE_VERSION}）低于推荐版本（v${REQUIRED_NODE_VERSION}）"
-        read -p "是否继续使用当前系统的 Node.js？(y/n): " CONTINUE_WITH_SYSTEM_NODE
-        if [[ $CONTINUE_WITH_SYSTEM_NODE =~ ^[Yy]$ ]]; then
-            print_info "将使用系统 Node.js ${NODE_VERSION}"
+        print_warning "系统 Node.js 低于推荐版本 v${REQUIRED_NODE_VERSION}"
+        read -r -p "是否继续使用系统 Node.js？(y/n): " CONTINUE_WITH_SYSTEM_NODE
+        if [[ "${CONTINUE_WITH_SYSTEM_NODE}" =~ ^[Yy]$ ]]; then
             USE_SYSTEM_NODE=true
-        else
-            print_info "将使用脚本提供的 Node.js ${BUNDLED_NODE_VERSION}"
         fi
     fi
-else
-    print_info "系统未安装 Node.js，将使用脚本提供的 Node.js ${BUNDLED_NODE_VERSION}"
 fi
 
-# 如果不使用系统 Node.js，则检查本地是否已有指定版本的 Node.js
-if [ "$USE_SYSTEM_NODE" = false ]; then
+if [ "${USE_SYSTEM_NODE}" = false ]; then
     if [ ! -d "${NODE_DIR}" ]; then
-        print_info "Node.js ${BUNDLED_NODE_VERSION} 未在当前目录找到，正在下载..."
-        cd "${CURRENT_DIR}" || exit_on_error "无法切换到当前目录"
-        mkdir -p "${NODE_ZIP_DIR}" || exit_on_error "创建 Node.js 目录失败"
-        cd "${NODE_ZIP_DIR}" || exit_on_error "无法进入 Node.js 目录"
-        
-        if ! curl -L -o "node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz" "https://nodejs.org/dist/${BUNDLED_NODE_VERSION}/node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz"; then
-            exit_on_error "下载 Node.js 失败"
-        fi
-
-        mkdir -p "${NODE_DIR}" || exit_on_error "创建 Node.js 解压目录失败"
-        if ! tar -xzf "node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz" -C "${NODE_DIR}" --strip-components=1; then
-            exit_on_error "解压 Node.js 失败"
-        fi
-        
-        # 清理下载的压缩包
-        rm -f "node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz" || print_warning "清理 Node.js 安装包失败，但将继续执行"
-        
-        cd "${CURRENT_DIR}" || exit_on_error "无法返回原始目录"
-        print_info "Node.js ${BUNDLED_NODE_VERSION} 安装完成"
-    else
-        print_info "使用当前目录下的 Node.js ${BUNDLED_NODE_VERSION}"
+        print_info "下载 Node.js ${BUNDLED_NODE_VERSION}..."
+        TMP_NODE_ARCHIVE="${NODE_ROOT}/node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz"
+        curl -fsSL "https://nodejs.org/dist/${BUNDLED_NODE_VERSION}/node-${BUNDLED_NODE_VERSION}-${OS}-${NODE_ARCH}.tar.gz" -o "${TMP_NODE_ARCHIVE}"
+        mkdir -p "${NODE_DIR}"
+        tar -xzf "${TMP_NODE_ARCHIVE}" -C "${NODE_DIR}" --strip-components=1
+        rm -f "${TMP_NODE_ARCHIVE}"
     fi
-    
-    # 设置环境变量使用下载的 Node.js
     export PATH="${NODE_DIR}/bin:${PATH}"
 fi
 
 ensure_pnpm() {
-    if command -v pnpm &>/dev/null; then
+    if command -v pnpm >/dev/null 2>&1; then
         print_info "检测到 pnpm $(pnpm -v)"
         return
     fi
-
-    if command -v corepack &>/dev/null; then
-        print_info "启用 Corepack 并安装 pnpm@${PNPM_VERSION}..."
-        if corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate; then
-            print_info "pnpm 已就绪"
+    if command -v corepack >/dev/null 2>&1; then
+        print_info "启用 Corepack 并安装 pnpm@${PNPM_VERSION}"
+        if corepack enable && corepack prepare "pnpm@${PNPM_VERSION}" --activate; then
             return
         fi
-        print_warning "Corepack 安装 pnpm 失败，尝试使用 npm 安装..."
     fi
-
-    if ! command -v npm &>/dev/null; then
-        exit_on_error "未找到 npm，无法安装 pnpm"
+    if ! command -v npm >/dev/null 2>&1; then
+        exit_on_error "未找到 npm，无法安装 pnpm。"
     fi
-    if ! npm install -g pnpm@${PNPM_VERSION}; then
-        exit_on_error "pnpm 安装失败"
-    fi
+    npm install -g "pnpm@${PNPM_VERSION}" || exit_on_error "安装 pnpm 失败。"
 }
-
-# 下载项目文件
-if [ ! -d "${PROJECT_DIR}" ]; then
-    print_info "下载项目文件..."
-    if ! curl -L "${PROJECT_ZIP_URL}" -o "${CURRENT_DIR}/project.zip"; then
-        exit_on_error "下载项目文件失败"
-    fi
-    if ! unzip -q "${CURRENT_DIR}/project.zip" -d "${CURRENT_DIR}"; then
-        exit_on_error "解压项目文件失败"
-    fi
-    rm -f "${CURRENT_DIR}/project.zip" || print_warning "清理项目安装包失败，但将继续执行"
-    print_info "项目文件下载并解压完成"
-else
-    print_info "项目目录已存在"
-fi
-
-cd "${PROJECT_DIR}" || exit_on_error "无法进入项目目录"
 
 ensure_pnpm
 
+print_info "获取版本清单..."
+curl -fsSL "${MANIFEST_URL}" -o "${MANIFEST_CACHE}"
+
+RESOLVE_RESULT="$(
+    node -e '
+const fs = require("fs");
+const manifestPath = process.argv[1];
+const requested = process.argv[2];
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const versions = manifest.versions || {};
+const request = !requested || requested === "latest" ? manifest.latest : requested;
+const candidates = [request];
+if (request && request.startsWith("v")) {
+  candidates.push(request.slice(1));
+} else if (request) {
+  candidates.push(`v${request}`);
+}
+const version = candidates.find((item) => item && versions[item]);
+if (!version) {
+  process.stderr.write("指定版本不存在\n");
+  process.exit(2);
+}
+const commit = versions[version].commit;
+if (!commit) {
+  process.stderr.write("版本缺少 commit\n");
+  process.exit(3);
+}
+process.stdout.write(version + "|" + commit);
+' "${MANIFEST_CACHE}" "${REQUESTED_VERSION}"
+)" || exit_on_error "解析版本清单失败（请求版本：${REQUESTED_VERSION}）。"
+
+RESOLVED_VERSION="${RESOLVE_RESULT%%|*}"
+RESOLVED_COMMIT="${RESOLVE_RESULT#*|}"
+VERSION_DIR="${VERSIONS_ROOT}/${RESOLVED_VERSION}"
+
+print_info "目标版本：${RESOLVED_VERSION} (${RESOLVED_COMMIT})"
+
+if [ ! -d "${VERSION_DIR}" ]; then
+    print_info "下载源码到 ${VERSION_DIR}"
+    TMP_WORK_DIR="$(mktemp -d "${INSTALL_ROOT}/tmp.XXXXXX")"
+    ARCHIVE_PATH="${TMP_WORK_DIR}/source.zip"
+    curl -fsSL "https://codeload.github.com/${PROJECT_REPO}/zip/${RESOLVED_COMMIT}" -o "${ARCHIVE_PATH}"
+    unzip -q "${ARCHIVE_PATH}" -d "${TMP_WORK_DIR}"
+    EXTRACTED_DIR="$(find "${TMP_WORK_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+    [ -n "${EXTRACTED_DIR}" ] || exit_on_error "源码解压失败。"
+    mkdir -p "${VERSION_DIR}"
+    cp -R "${EXTRACTED_DIR}/." "${VERSION_DIR}/"
+    rm -rf "${TMP_WORK_DIR}"
+else
+    print_info "版本目录已存在，跳过下载。"
+fi
+
+cd "${VERSION_DIR}"
 print_info "安装依赖..."
 if ! pnpm install; then
-    print_warning "安装依赖失败，尝试重新安装..."
-    if ! pnpm install; then
-        exit_on_error "依赖安装失败，终止执行"
-    fi
+    print_warning "首次安装失败，重试一次..."
+    pnpm install || exit_on_error "依赖安装失败。"
 fi
 
 echo "=================================================="
-if [ "$COMMAND" == "start" ]; then
-    print_info "尝试启动项目..."
-    if ! pnpm start; then
-        print_warning "启动失败，尝试重新安装依赖..."
-        if ! pnpm install; then
-            exit_on_error "依赖重新安装失败，终止执行"
-        fi
-        if ! pnpm start; then
-            exit_on_error "项目启动失败，请检查错误日志"
-        fi
-    fi
-elif [ "$COMMAND" == "dev" ]; then
-    print_info "尝试以开发模式启动项目..."
-    if ! pnpm run dev; then
-        print_warning "启动失败，尝试重新安装依赖..."
-        if ! pnpm install; then
-            exit_on_error "依赖重新安装失败，终止执行"
-        fi
-        if ! pnpm run dev; then
-            exit_on_error "项目开发模式启动失败，请检查错误日志"
-        fi
-    fi
+if [ "${COMMAND}" = "start" ]; then
+    print_info "启动生产模式..."
+    pnpm start
+elif [ "${COMMAND}" = "dev" ]; then
+    print_info "启动开发模式..."
+    pnpm run dev
 else
-    print_info "安装完成！"
+    print_info "安装完成。"
+    echo "目录结构："
+    echo "  - ${NODE_ROOT}"
+    echo "  - ${VERSIONS_ROOT}/${RESOLVED_VERSION}"
     echo
-    echo "启动指令："
-    echo "  - 要启动项目，请运行：'bash install.sh start'"
-    echo "  - 要以开发模式启动项目，请运行：'bash install.sh dev'"
-    echo
+    echo "使用方式："
+    echo "  - bash install.sh [start|dev] --version <version|latest> --node-version <nodeVersion>"
+    echo "  - bash install.sh [start|dev] -v <version|latest> -n <nodeVersion>"
+    echo "示例："
+    echo "  - bash install.sh start --version latest --node-version v20.11.0"
+    echo "  - bash install.sh dev -v 0.0.1 -n v22.14.0"
 fi
 echo "=================================================="

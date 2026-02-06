@@ -8,7 +8,9 @@
     "start": "node scripts/run.mjs --env production src/appServer.ts",
     "dev": "node scripts/run.mjs --env development --watch src/appServer.ts",
     "mc:ping": "node scripts/run.mjs --env test src/mcClient.ts",
-    "test": "pnpm run mc:ping"
+    "test": "pnpm run mc:ping",
+    "release:manifest": "node .github/scripts/generate-version-manifest.mjs",
+    "release:manifest:check": "node .github/scripts/generate-version-manifest.mjs --check"
   },
   "dependencies": {
     "dayjs": "^1.11.19",

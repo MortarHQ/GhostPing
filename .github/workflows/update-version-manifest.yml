@@ -1,0 +1,50 @@
+name: Update Version Manifest
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+
+concurrency:
+  group: update-version-manifest
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Checkout default branch with tags
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Ensure all tags are fetched
+        run: git fetch --force --tags origin
+
+      - name: Generate manifest
+        run: node .github/scripts/generate-version-manifest.mjs
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- docs/releases/versions.json; then
+            echo "No manifest changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/releases/versions.json
+          git commit -m "chore(release): update versions manifest [skip ci]"
+          git push origin "HEAD:${DEFAULT_BRANCH}"

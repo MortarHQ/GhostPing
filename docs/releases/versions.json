@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "repository": "MortarHQ/GhostPing",
+  "generatedAt": "2026-02-06T01:55:19+08:00",
+  "latest": "0.0.1",
+  "tags": [
+    "0.0.1"
+  ],
+  "versions": {
+    "0.0.1": {
+      "tag": "0.0.1",
+      "commit": "683c956b09e5c6321899974b5e9ce5f727e7e16a",
+      "zipball": "https://codeload.github.com/MortarHQ/GhostPing/zip/683c956b09e5c6321899974b5e9ce5f727e7e16a",
+      "tarball": "https://codeload.github.com/MortarHQ/GhostPing/tar.gz/683c956b09e5c6321899974b5e9ce5f727e7e16a"
+    }
+  }
+}

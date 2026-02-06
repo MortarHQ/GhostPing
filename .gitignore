@@ -69,3 +69,6 @@ data/offset.fn.js
 
 # build
 dist
+
+# one-click installer workspace
+ghostping/

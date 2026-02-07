@@ -5,7 +5,10 @@
   "type": "module",
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "start": "pnpm run web:build && node scripts/run.mjs --env production src/appServer.ts",
+    "start": "pnpm run start:build && pnpm run start:check-update && pnpm run start:server",
+    "start:build": "pnpm run web:build",
+    "start:check-update": "node scripts/check-version-update.mjs",
+    "start:server": "node scripts/run.mjs --env production src/appServer.ts",
     "dev": "node scripts/run.mjs --env development --watch src/appServer.ts",
     "web:dev": "vite --config frontend/vite.config.ts",
     "web:build": "vite build --config frontend/vite.config.ts",

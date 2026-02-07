@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { RawJsonViewer } from "@/components/raw-json-viewer";
 import {
   ensureOffsetTypedSource,
   OffsetFunctionEditor,
@@ -361,11 +362,11 @@ export default function App() {
 
       {rawOpen ? (
         <div
-          className="fixed inset-0 z-30 grid place-items-center bg-black/45 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-30 grid place-items-center bg-black/45 p-2 backdrop-blur-[2px] sm:p-4"
           onClick={() => setRawOpen(false)}
         >
           <Card
-            className="w-full max-w-3xl"
+            className="w-full max-w-3xl min-w-0"
             onClick={(e) => {
               e.stopPropagation();
             }}
@@ -374,11 +375,9 @@ export default function App() {
               <CardTitle>原始 JSON</CardTitle>
               <CardDescription>服务端返回的完整数据</CardDescription>
             </CardHeader>
-            <CardContent>
-              <pre className="max-h-[48vh] overflow-auto rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 p-4 font-mono text-xs">
-                {rawJson}
-              </pre>
-              <div className="mt-4 flex justify-end gap-2">
+            <CardContent className="min-w-0">
+              <RawJsonViewer value={rawJson} dark={themeDark} />
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
                 <Button variant="outline" onClick={() => setRawOpen(false)}>
                   关闭
                 </Button>

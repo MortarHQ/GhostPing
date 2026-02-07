@@ -58,6 +58,7 @@ function StatusBar({ text, tone }: { text: string; tone: "info" | "error" | "suc
 }
 
 export default function App() {
+  const appVersion = __APP_VERSION__;
   const [source, setSource] = useState(() => ensureOffsetTypedSource(""));
   const [serverData, setServerData] = useState<ServerStatus | null>(null);
   const [rawOpen, setRawOpen] = useState(false);
@@ -228,7 +229,12 @@ export default function App() {
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-[hsl(var(--primary))] text-xs font-bold text-[hsl(var(--primary-foreground))]">
               GP
             </div>
-            <h1 className="text-lg font-semibold tracking-tight">Ghost Ping Console</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold tracking-tight">Ghost Ping Console</h1>
+              <span className="rounded border border-[hsl(var(--border))] px-1.5 py-0.5 text-[10px] leading-none text-[hsl(var(--muted-foreground))]">
+                v{appVersion}
+              </span>
+            </div>
           </div>
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
             {themeDark ? <Sun size={18} /> : <Moon size={18} />}

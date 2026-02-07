@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { pathToFileURL } from "url";
+import { Worker } from "worker_threads";
 import beautifyJs from "js-beautify";
 import { IncomingMessage, ServerResponse } from "http";
 import log from "@utils/logger";
@@ -15,15 +15,25 @@ type JsonRecord = Record<string, unknown>;
 type OffsetFunction = (
   origin: ServerStatus,
   servers: ServerStatus[],
-) => unknown;
+) => unknown | Promise<unknown>;
+type OffsetFunctionState = { source: string };
+type OffsetWorkerSuccessMessage = { ok: true; value: unknown };
+type OffsetWorkerFailureMessage = {
+  ok: false;
+  error: { message: string; stack?: string };
+};
+type OffsetWorkerMessage = OffsetWorkerSuccessMessage | OffsetWorkerFailureMessage;
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 const OFFSET_FILE = path.join(process.cwd(), "data", "offset.fn.js");
-let offsetFunction: { source: string; fn: OffsetFunction } | null = null;
+let offsetFunction: OffsetFunctionState | null = null;
 let offsetInitPromise: Promise<void> | null = null;
+let isOffsetValidationRunning = false;
 const clientsList: Client[] = config.server_list.map(
   (server) => new Client(server.host, server.port, server.version as VERSION),
 );
+const DEFAULT_OFFSET_VALIDATE_TIMEOUT_MS = 3000;
+const DEFAULT_OFFSET_APPLY_TIMEOUT_MS = 1200;
 
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -78,6 +88,71 @@ const DEFAULT_OFFSET_MODULE_SOURCE = (() => {
   const formatted = formatModuleSource(rawModule);
   return formatted.trim() ? formatted : rawModule;
 })();
+const OFFSET_WORKER_SCRIPT = `
+const { parentPort, workerData } = require("node:worker_threads");
+
+function buildDataUrl(source) {
+  const payload = Buffer.from(source, "utf8").toString("base64");
+  return "data:text/javascript;base64," + payload;
+}
+
+function toErrorPayload(error) {
+  if (error && typeof error === "object") {
+    return {
+      message: typeof error.message === "string" ? error.message : String(error),
+      stack: typeof error.stack === "string" ? error.stack : undefined,
+    };
+  }
+  return { message: String(error), stack: undefined };
+}
+
+(async () => {
+  try {
+    const moduleUrl = buildDataUrl(workerData.source);
+    const mod = await import(moduleUrl);
+    const fn = mod && mod.default;
+    if (typeof fn !== "function") {
+      throw new Error("Offset module must export default a function");
+    }
+    const value = await fn(workerData.origin, workerData.servers);
+    parentPort.postMessage({ ok: true, value });
+  } catch (error) {
+    parentPort.postMessage({ ok: false, error: toErrorPayload(error) });
+  }
+})();
+`;
+
+function parsePositiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value || "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getOffsetApplyTimeoutMs() {
+  return parsePositiveInteger(
+    process.env.OFFSET_APPLY_TIMEOUT_MS,
+    DEFAULT_OFFSET_APPLY_TIMEOUT_MS,
+  );
+}
+
+function getOffsetValidateTimeoutMs() {
+  return parsePositiveInteger(
+    process.env.OFFSET_VALIDATE_TIMEOUT_MS,
+    DEFAULT_OFFSET_VALIDATE_TIMEOUT_MS,
+  );
+}
+
+function isOffsetWorkerMessage(value: unknown): value is OffsetWorkerMessage {
+  if (!isRecord(value) || typeof value.ok !== "boolean") {
+    return false;
+  }
+  if (value.ok) {
+    return "value" in value;
+  }
+  if (!isRecord(value.error)) {
+    return false;
+  }
+  return typeof value.error.message === "string";
+}
 
 function normalizeOffsetModuleSource(
   source: string,
@@ -317,32 +392,102 @@ function isValidServerStatus(value: unknown) {
   return "description" in value;
 }
 
-async function loadOffsetModuleFromFile(filePath: string) {
-  const fileUrl = `${pathToFileURL(filePath).href}?t=${Date.now()}`;
-  const mod = await import(fileUrl);
-  const fn = mod?.default;
-  if (typeof fn !== "function") {
-    throw new Error("偏移模块必须 export default 一个函数");
-  }
-  return fn as OffsetFunction;
+async function executeOffsetFunction(
+  source: string,
+  origin: ServerStatus,
+  servers: ServerStatus[],
+  timeoutMs: number,
+) {
+  return await new Promise<unknown>((resolve, reject) => {
+    const worker = new Worker(OFFSET_WORKER_SCRIPT, {
+      eval: true,
+      workerData: {
+        source,
+        origin,
+        servers,
+      },
+    });
+
+    let settled = false;
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const finish = (handler: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      handler();
+    };
+
+    timeoutId = setTimeout(() => {
+      finish(() => {
+        void worker.terminate().catch(() => {});
+        reject(
+          new Error(`Offset function execution timed out after ${timeoutMs}ms`),
+        );
+      });
+    }, timeoutMs);
+
+    worker.once("message", (message: unknown) => {
+      finish(() => {
+        if (!isOffsetWorkerMessage(message)) {
+          reject(new Error("Offset function returned an invalid worker payload"));
+          return;
+        }
+        if (message.ok) {
+          resolve(message.value);
+          return;
+        }
+        const failureMessage = message as OffsetWorkerFailureMessage;
+        const err = new Error(failureMessage.error.message);
+        err.stack = failureMessage.error.stack || err.stack;
+        reject(err);
+      });
+    });
+
+    worker.once("error", (error) => {
+      finish(() => {
+        reject(error);
+      });
+    });
+
+    worker.once("exit", (code) => {
+      finish(() => {
+        reject(new Error(`Offset worker exited unexpectedly: ${code}`));
+      });
+    });
+  });
 }
 
-async function validateOffsetFunction(fn: OffsetFunction) {
+async function validateOffsetFunction(source: string) {
   const sampleServers = await getServerStatuses();
   const originInfo = buildOriginInfo(sampleServers, version2Protocol("1.16.5"));
-  const result = fn(originInfo, sampleServers);
+  const result = await executeOffsetFunction(
+    source,
+    originInfo,
+    sampleServers,
+    getOffsetValidateTimeoutMs(),
+  );
   const merged = mergeOverride(originInfo, result);
   if (!isValidServerStatus(merged)) {
     throw new Error("偏移函数返回格式不正确");
   }
 }
 
-function applyOffset(origin: ServerStatus, servers: ServerStatus[]) {
+async function applyOffset(origin: ServerStatus, servers: ServerStatus[]) {
   if (!offsetFunction) {
     return origin;
   }
   try {
-    const result = offsetFunction.fn(origin, servers);
+    const result = await executeOffsetFunction(
+      offsetFunction.source,
+      origin,
+      servers,
+      getOffsetApplyTimeoutMs(),
+    );
     return mergeOverride(origin, result);
   } catch (error) {
     log.error({ err: error }, "偏移函数执行失败");
@@ -358,38 +503,23 @@ async function applyAndPersistOffset(
   const normalized = normalizeOffsetModuleSource(source, {
     requireExport: options?.requireExport,
   });
-  const tempPath = path.join(path.dirname(OFFSET_FILE), ".offset.fn.temp.js");
-  const targetPath = persist ? OFFSET_FILE : tempPath;
-  let previousSource: string | null = null;
 
-  if (persist) {
-    try {
-      previousSource = await fs.promises.readFile(OFFSET_FILE, "utf8");
-    } catch {
-      previousSource = null;
-    }
+  if (isOffsetValidationRunning) {
+    throw new Error("Offset validation is already running, please try again later");
   }
 
-  await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
-  await fs.promises.writeFile(targetPath, normalized, "utf8");
-
+  isOffsetValidationRunning = true;
   try {
-    const fn = await loadOffsetModuleFromFile(targetPath);
-    await validateOffsetFunction(fn);
-    offsetFunction = { source: normalized, fn };
-  } catch (error) {
+    await validateOffsetFunction(normalized);
+
     if (persist) {
-      if (previousSource !== null) {
-        await fs.promises.writeFile(OFFSET_FILE, previousSource, "utf8");
-      } else {
-        await fs.promises.unlink(OFFSET_FILE).catch(() => {});
-      }
+      await fs.promises.mkdir(path.dirname(OFFSET_FILE), { recursive: true });
+      await fs.promises.writeFile(OFFSET_FILE, normalized, "utf8");
     }
-    throw error;
+
+    offsetFunction = { source: normalized };
   } finally {
-    if (!persist) {
-      await fs.promises.unlink(tempPath).catch(() => {});
-    }
+    isOffsetValidationRunning = false;
   }
 }
 
@@ -468,7 +598,7 @@ async function handleServerList(
   await initOffsetFunction();
   const allServer = await getServerStatuses();
   const originInfo = buildOriginInfo(allServer, protocolVersion);
-  const resInfo = applyOffset(originInfo, allServer);
+  const resInfo = await applyOffset(originInfo, allServer);
   sendJson(res, 200, resInfo);
 }
 

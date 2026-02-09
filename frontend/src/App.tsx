@@ -7,7 +7,7 @@ import {
   Moon,
   RefreshCcw,
   Sun,
-  Upload,
+  Download,
 } from "lucide-react";
 import { getOffsetFn, getServerList, loadDemoFn, putOffsetFn } from "@/api";
 import type { DescriptionPart, ServerStatus } from "@/types";
@@ -112,7 +112,7 @@ export default function App() {
     try {
       const data = await getOffsetFn();
       setSource(ensureOffsetTypedSource(data.__fn__ ?? ""));
-      setFeedback("已同步服务器函数", "success");
+      setFeedback("已拉取服务端当前函数", "success");
     } catch (error) {
       setFeedback(`加载失败: ${String(error)}`, "error");
     } finally {
@@ -262,8 +262,8 @@ export default function App() {
             <CardContent>
               <div className="mb-3 flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={handleLoadCurrent} disabled={loading.load}>
-                  <Upload size={14} />
-                  同步服务端
+                  <Download size={14} />
+                  拉取服务端函数
                 </Button>
                 <Button size="sm" variant="outline" onClick={handleLoadDemo} disabled={loading.demo}>
                   <Code2 size={14} />

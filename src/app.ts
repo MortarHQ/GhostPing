@@ -634,7 +634,6 @@ async function handleOffsetPut(req: IncomingMessage, res: ServerResponse) {
 
 async function handleOffsetTestPut(res: ServerResponse) {
   try {
-    await applyAndPersistOffset(DEFAULT_OFFSET_MODULE_SOURCE);
     sendJson(res, 200, { ok: true, __fn__: DEFAULT_OFFSET_MODULE_SOURCE });
   } catch (error) {
     log.error({ err: error }, "偏移函数测试设置失败");

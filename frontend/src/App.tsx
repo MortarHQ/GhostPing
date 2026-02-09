@@ -53,7 +53,7 @@ function StatusBar({ text, tone }: { text: string; tone: "info" | "error" | "suc
       ? "text-red-500"
       : tone === "success"
         ? "text-emerald-500"
-        : "text-[hsl(var(--muted-foreground))]";
+        : "text-muted-foreground";
   return <p className={`text-sm ${color}`}>{text}</p>;
 }
 
@@ -222,16 +222,16 @@ export default function App() {
   const samplePlayers = serverData?.players?.sample?.slice(0, 6) ?? [];
 
   return (
-    <div className="relative min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
-      <header className="relative z-10 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+    <div className="relative min-h-screen bg-background text-foreground">
+      <header className="relative z-10 border-b border-border bg-card">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[hsl(var(--primary))] text-xs font-bold text-[hsl(var(--primary-foreground))]">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
               GP
             </div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-semibold tracking-tight">Ghost Ping Console</h1>
-              <span className="rounded border border-[hsl(var(--border))] px-1.5 py-0.5 text-[10px] leading-none text-[hsl(var(--muted-foreground))]">
+              <span className="text-muted-foreground rounded border border-border px-1.5 py-0.5 text-[10px] leading-none">
                 v{appVersion}
               </span>
             </div>
@@ -245,7 +245,7 @@ export default function App() {
       <main className="relative z-10 mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
         <div className="mb-8">
           <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Minecraft 服务端控制台</h2>
-          <p className="mt-2 text-[hsl(var(--muted-foreground))]">
+          <p className="text-muted-foreground mt-2">
             编写偏移函数并实时预览客户端展示效果。
           </p>
         </div>
@@ -292,7 +292,7 @@ export default function App() {
                   editorHandleRef.current = handle;
                 }}
               />
-              <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
+              <p className="text-muted-foreground mt-2 text-xs">
                 VS Code 编辑器已启用，支持 JS 智能提示、类型检查与格式化。
               </p>
               <div className="mt-4 flex items-center justify-between gap-3">

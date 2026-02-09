@@ -189,7 +189,7 @@ export function OffsetFunctionEditor({
   );
 
   return (
-    <div className="w-full min-w-0 overflow-hidden rounded-md border border-[hsl(var(--input))]">
+    <div className="w-full min-w-0 overflow-hidden rounded-md border border-input">
       <Editor
         path={OFFSET_MODEL_URI}
         language="javascript"

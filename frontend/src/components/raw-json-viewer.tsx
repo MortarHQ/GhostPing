@@ -83,7 +83,7 @@ export function RawJsonViewer({ value, dark }: RawJsonViewerProps) {
   }, [displayValue, foldFavicon]);
 
   return (
-    <div className="w-full min-w-0 overflow-hidden rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50">
+    <div className="w-full min-w-0 overflow-hidden rounded-md border border-border bg-muted/50">
       <Editor
         path={RAW_JSON_MODEL_URI}
         language="json"

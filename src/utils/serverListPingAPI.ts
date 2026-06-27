@@ -44,8 +44,18 @@ function buildFallbackStatus(protocolVersion: number): ServerStatus {
   return fallback;
 }
 
+function hasCompleteVarInt(buffer: Buffer, offset: number): boolean {
+  for (let i = offset; i < buffer.length && i < offset + 5; i++) {
+    if ((buffer[i] & 0x80) === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class MinecraftProtocolHandler {
   private socket: Socket;
+  private buffer: Buffer = Buffer.alloc(0);
 
   constructor(socket: Socket) {
     this.socket = socket;
@@ -54,8 +64,11 @@ class MinecraftProtocolHandler {
   // 处理接收到的数据包
   async handlePacket(data: Buffer): Promise<void> {
     try {
+      // 累加接收到的数据
+      this.buffer = Buffer.concat([new Uint8Array(this.buffer), new Uint8Array(data)]);
+
       // 处理旧版本协议
-      if (data[0] === 0xfe) {
+      if (this.buffer.length > 0 && this.buffer[0] === 0xfe) {
         log.info(
           `旧版本协议请求(<=1.6)，来自: ${this.socket.remoteAddress}，暂不响应`
         );
@@ -63,36 +76,68 @@ class MinecraftProtocolHandler {
         return;
       }
 
-      // 解析数据包
-      const { length, packetID } = decodePacketID(data);
+      // 循环处理缓冲区中所有完整的数据包
+      while (true) {
+        if (!hasCompleteVarInt(this.buffer, 0)) {
+          break; // 数据不够解析 Packet Length，继续等待
+        }
 
-      log.debug(
-        `收到数据包: ID=${packetID.value}, 长度=${data.length}, 数据=${data
-          .toString("hex")
-          .substring(0, 50)}...`
-      );
+        const lengthVarInt = varint.decode(new Uint8Array(this.buffer), 0);
+        // @ts-ignore
+        const lengthBytes = varint.decode.bytes;
+        const packetLength = lengthVarInt; // 实际包体长度
 
-      // 根据包ID分发处理
-      switch (packetID.value) {
-        case 0x01: // Ping请求
-          await this.handlePingRequest(data);
+        if (this.buffer.length < lengthBytes + packetLength) {
+          break; // 包体未完全接收，退出循环等待
+        }
+
+        // 截取当前完整的包
+        const packet = this.buffer.subarray(0, lengthBytes + packetLength);
+        
+        // 移出当前已处理的包
+        this.buffer = this.buffer.subarray(lengthBytes + packetLength);
+
+        // 调度处理完整包
+        await this.processPacket(packet);
+
+        if (this.socket.destroyed) {
           break;
-
-        case 0x00: // Handshake或Status请求
-          if (data.length === 2) {
-            log.debug("收到Status Request，等待后续数据包");
-            return; // 不处理空的状态请求，等待后续数据包
-          }
-          await this.handleHandshake(data);
-          break;
-
-        default:
-          log.warn(`未知数据包类型: ${packetID.value}`);
-          this.socket.destroy();
+        }
       }
     } catch (err) {
       log.error("处理数据包出错:", err);
       this.socket.destroy();
+    }
+  }
+
+  // 内部包处理逻辑
+  private async processPacket(packet: Buffer): Promise<void> {
+    // 解析数据包
+    const { length, packetID } = decodePacketID(packet);
+
+    log.debug(
+      `收到数据包: ID=${packetID.value}, 长度=${packet.length}, 数据=${packet
+        .toString("hex")
+        .substring(0, 50)}...`
+    );
+
+    // 根据包ID分发处理
+    switch (packetID.value) {
+      case 0x01: // Ping请求
+        await this.handlePingRequest(packet);
+        break;
+
+      case 0x00: // Handshake或Status请求
+        if (packet.length === 2) {
+          log.debug("收到Status Request");
+          return; // 不处理空的状态请求，等待后续数据包
+        }
+        await this.handleHandshake(packet);
+        break;
+
+      default:
+        log.warn(`未知数据包类型: ${packetID.value}`);
+        this.socket.destroy();
     }
   }
 
@@ -331,8 +376,11 @@ function getServerStatus(
     let buffer = Buffer.alloc(0);
     client.on("data", (data) => {
       buffer = Buffer.concat([new Uint8Array(buffer), new Uint8Array(data)]);
+      if (!hasCompleteVarInt(buffer, 0)) {
+        return;
+      }
       let varint = readVarInt(buffer, 0);
-      if (buffer.length < varint.value) {
+      if (buffer.length < varint.offset + varint.value) {
         return;
       } else {
         const res = parseServerStatusPacket(serverAddress, serverPort, buffer);

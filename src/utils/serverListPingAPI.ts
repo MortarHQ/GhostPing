@@ -217,6 +217,7 @@ class MinecraftProtocolHandler {
       const nextState = readVarInt(data, portOffset + 2);
 
       const protocolVal = protocolVersion.value;
+      this.protocolVersion = protocolVal; // 保存客户端实际请求的协议号
       const mcVersion = protocol2Version(protocolVal);
       if (mcVersion) {
         log.info(
@@ -282,8 +283,17 @@ class MinecraftProtocolHandler {
         : buildFallbackStatus(protocolVersion);
 
       // 创建响应包并发送
+      const jsonStr = JSON.stringify(responsePayload);
+      
+      // 避免 base64 图片刷屏控制台，复制一份用于日志输出，并截断 favicon
+      const logPayload = { ...responsePayload } as any;
+      if (logPayload.favicon && typeof logPayload.favicon === "string") {
+        logPayload.favicon = logPayload.favicon.substring(0, 50) + "... (truncated)";
+      }
+      log.debug(`[TCP] 发送 Status 响应 JSON: ${JSON.stringify(logPayload)}`);
+
       const responsePacket = createServerStatusPacket(
-        Buffer.from(JSON.stringify(responsePayload))
+        Buffer.from(jsonStr)
       );
 
       this.socket.write(new Uint8Array(responsePacket));

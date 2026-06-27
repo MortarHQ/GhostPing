@@ -6,7 +6,7 @@ import process from "node:process";
 const semverTagPattern = /^v\d+\.\d+\.\d+$/;
 
 function printUsage(): void {
-  console.log("Usage: node .github/scripts/generate-version-manifest.mjs [--check] [--repo <owner/repo>] [--out <path>]");
+  console.log("Usage: tsx .github/scripts/generate-version-manifest.ts [--check] [--repo <owner/repo>] [--out <path>]");
 }
 
 interface ParsedArgs {

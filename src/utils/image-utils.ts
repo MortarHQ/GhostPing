@@ -41,9 +41,23 @@ function getServerIcon(): string {
     return cachedServerIcon;
   }
 
-  const imagePath = path.join(process.cwd(), "data", "server-icon.png");
-  if (imageExists(imagePath)) {
-    cachedServerIcon = getBase64Image(imagePath);
+  const dataDir = path.join(process.cwd(), "data");
+  const dataImagePath = path.join(dataDir, "server-icon.png");
+  const assetImagePath = path.join(process.cwd(), "src", "assets", "server-icon.png");
+
+  if (!imageExists(dataImagePath)) {
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+      if (imageExists(assetImagePath)) {
+        fs.copyFileSync(assetImagePath, dataImagePath);
+      }
+    } catch (error) {
+      // 忽略复制文件错误
+    }
+  }
+
+  if (imageExists(dataImagePath)) {
+    cachedServerIcon = getBase64Image(dataImagePath);
     return cachedServerIcon;
   }
 

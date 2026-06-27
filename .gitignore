@@ -64,8 +64,8 @@ typings/
 test.json
 demo.ts
 
-# data中特定文件
-data/offset.fn.js
+# data 目录所有本地数据文件忽略，运行时自动生成
+data/
 
 # build
 dist

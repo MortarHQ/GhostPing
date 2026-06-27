@@ -73,7 +73,14 @@ export function startServers(options?: {
     const onReady = () => {
       ready += 1;
       if (ready === 2) {
-        resolve({ tcpServer, httpServer, tcpHost, httpHost, tcpPort, httpPort });
+        resolve({
+          tcpServer,
+          httpServer,
+          tcpHost,
+          httpHost,
+          tcpPort,
+          httpPort,
+        });
       }
     };
 
@@ -102,7 +109,9 @@ function isMainModule() {
     return false;
   }
   const normalizeUrl = (value: string) => value.split(/[?#]/)[0];
-  return normalizeUrl(import.meta.url) === normalizeUrl(pathToFileURL(mainPath).href);
+  return (
+    normalizeUrl(import.meta.url) === normalizeUrl(pathToFileURL(mainPath).href)
+  );
 }
 
 if (isMainModule()) {

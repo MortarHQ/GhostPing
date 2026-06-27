@@ -8,13 +8,18 @@ export type DescriptionPart =
       underlined?: boolean;
     };
 
+export type ChatComponent = {
+  text?: string;
+  extra?: DescriptionPart[];
+};
+
 export type ServerStatus = {
   version?: {
     name?: string;
     protocol?: number;
   };
   favicon?: string;
-  description?: DescriptionPart[] | { text?: string } | string;
+  description?: ChatComponent | DescriptionPart[] | string;
   players?: {
     online?: number;
     max?: number;

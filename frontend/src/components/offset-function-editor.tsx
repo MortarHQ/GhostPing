@@ -1,47 +1,22 @@
 import { useCallback, useRef } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import type * as MonacoEditor from "monaco-editor";
+import declareConstsRaw from "../../../src/declare/delcare_const.ts?raw";
 
 const OFFSET_TYPES_URI = "file:///ghostping/offset-types.d.ts";
 const OFFSET_MODEL_URI = "file:///ghostping/offset.fn.js";
 const FORMAT_MARKER_OWNER = "ghostping-format";
 
+const cleanDeclareConstsRaw = `
+declare const protocols: Record<string, number>;
+` + declareConstsRaw
+  .replace(/import\s+[\s\S]*?from\s+['"].*?['"];?/g, "")
+  .replace(/\bexport\s+/g, "");
+
 const OFFSET_TYPE_DEFS = `
+${cleanDeclareConstsRaw}
+
 declare namespace GhostPing {
-  interface DescriptionObject {
-    text?: string;
-    color?: string;
-    bold?: boolean;
-    italic?: boolean;
-    underlined?: boolean;
-  }
-
-  type DescriptionPart = string | DescriptionObject;
-
-  interface PlayerSample {
-    name: string;
-    id?: string;
-  }
-
-  interface ServerVersion {
-    name?: string;
-    protocol?: number;
-  }
-
-  interface ServerPlayers {
-    online?: number;
-    max?: number;
-    sample?: PlayerSample[];
-  }
-
-  interface ServerStatus {
-    version?: ServerVersion;
-    favicon?: string;
-    description?: DescriptionPart[] | { text?: string } | string;
-    players?: ServerPlayers;
-    [key: string]: unknown;
-  }
-
   type OffsetResult = Partial<ServerStatus> | void;
   type OffsetFunction = (
     origin: ServerStatus,

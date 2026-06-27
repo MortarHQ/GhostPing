@@ -8,7 +8,11 @@ import log from "@utils/logger";
 import { config } from "./config/config_parser";
 import { Client } from "@utils/serverListPingAPI";
 import { ServerStatus, VERSION } from "@declare/delcare_const";
-import { version2Protocol, protocol2Version, buildChatComponent } from "@utils/protocol-utils";
+import {
+  version2Protocol,
+  protocol2Version,
+  buildChatComponent,
+} from "@utils/protocol-utils";
 import { getServerIcon } from "@utils/image-utils";
 
 type JsonRecord = Record<string, unknown>;
@@ -22,7 +26,9 @@ type OffsetWorkerFailureMessage = {
   ok: false;
   error: { message: string; stack?: string };
 };
-type OffsetWorkerMessage = OffsetWorkerSuccessMessage | OffsetWorkerFailureMessage;
+type OffsetWorkerMessage =
+  | OffsetWorkerSuccessMessage
+  | OffsetWorkerFailureMessage;
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 const OFFSET_FILE = path.join(process.cwd(), "data", "offset.fn.js");
@@ -51,7 +57,10 @@ const CONTENT_TYPES: Record<string, string> = {
 const DEFAULT_OFFSET_MODULE_TEMPLATE: OffsetFunction = (origin, servers) => {
   const totals = servers.reduce(
     (acc, server) => {
-      const players = server?.players || {};
+      const players = server?.players ?? {
+        max: 0,
+        online: 0,
+      };
       const online = typeof players.online === "number" ? players.online : 0;
       const max = typeof players.max === "number" ? players.max : 0;
       acc.online += online;
@@ -77,7 +86,7 @@ const DEFAULT_OFFSET_MODULE_TEMPLATE: OffsetFunction = (origin, servers) => {
           underlined: true,
           color: "gray",
         },
-      ]
+      ],
     },
   };
 };
@@ -436,7 +445,9 @@ async function executeOffsetFunction(
     worker.once("message", (message: unknown) => {
       finish(() => {
         if (!isOffsetWorkerMessage(message)) {
-          reject(new Error("Offset function returned an invalid worker payload"));
+          reject(
+            new Error("Offset function returned an invalid worker payload"),
+          );
           return;
         }
         if (message.ok) {
@@ -507,7 +518,9 @@ async function applyAndPersistOffset(
   });
 
   if (isOffsetValidationRunning) {
-    throw new Error("Offset validation is already running, please try again later");
+    throw new Error(
+      "Offset validation is already running, please try again later",
+    );
   }
 
   isOffsetValidationRunning = true;

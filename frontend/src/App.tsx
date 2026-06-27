@@ -198,8 +198,20 @@ export default function App() {
     if (typeof description === "string") {
       return <span>{description}</span>;
     }
+
+    let parts: DescriptionPart[] = [];
     if (Array.isArray(description)) {
-      return description.map((part: DescriptionPart, idx) => {
+      parts = description;
+    } else if (description && typeof description === "object") {
+      if (Array.isArray(description.extra)) {
+        parts = description.extra;
+      } else if (typeof description.text === "string") {
+        return <span>{description.text}</span>;
+      }
+    }
+
+    if (parts.length > 0) {
+      return parts.map((part: DescriptionPart, idx) => {
         if (typeof part === "string") {
           return <span key={`${part}-${idx}`}>{part}</span>;
         }
@@ -216,7 +228,8 @@ export default function App() {
         );
       });
     }
-    return <span>{description.text ?? ""}</span>;
+
+    return null;
   }
 
   const samplePlayers = serverData?.players?.sample?.slice(0, 6) ?? [];

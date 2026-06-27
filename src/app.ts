@@ -8,7 +8,7 @@ import log from "@utils/logger";
 import { config } from "./config/config_parser";
 import { Client } from "@utils/serverListPingAPI";
 import { ServerStatus, VERSION } from "@declare/delcare_const";
-import { version2Protocol } from "@utils/protocol-utils";
+import { version2Protocol, protocol2Version, buildChatComponent } from "@utils/protocol-utils";
 import { getServerIcon } from "@utils/image-utils";
 
 type JsonRecord = Record<string, unknown>;
@@ -66,17 +66,19 @@ const DEFAULT_OFFSET_MODULE_TEMPLATE: OffsetFunction = (origin, servers) => {
       online: totals.online,
       max: totals.max,
     },
-    description: [
-      "",
-      { text: "Mortar", bold: true, color: "aqua" },
-      { text: " 自定义偏移函数", bold: true, color: "gold" },
-      {
-        text: "\n当前为函数模式展示",
-        italic: true,
-        underlined: true,
-        color: "gray",
-      },
-    ],
+    description: {
+      text: "",
+      extra: [
+        { text: "Mortar", bold: true, color: "aqua" },
+        { text: " 自定义偏移函数", bold: true, color: "gold" },
+        {
+          text: "\n当前为函数模式展示",
+          italic: true,
+          underlined: true,
+          color: "gray",
+        },
+      ]
+    },
   };
 };
 const EXPORT_DEFAULT_RE = /\bexport\s+default\b/;
@@ -315,9 +317,10 @@ function buildOriginInfo(
     }
   }
 
+  const mcVersion = protocol2Version(protocolVersion) || "mortar";
   const originInfo = JSON.parse(`{
     "version": {
-        "name": "mortar",
+        "name": "${mcVersion}",
         "protocol": ${protocolVersion}
     },
     "favicon": "${getServerIcon()}",
@@ -330,8 +333,7 @@ function buildOriginInfo(
     }
   }`) as ServerStatus;
 
-  originInfo.description = [
-    "",
+  originInfo.description = buildChatComponent([
     { text: "Mortar", bold: true, color: "aqua" },
     { text: " 全服在线人数统计", bold: true, color: "gold" },
     {
@@ -340,7 +342,7 @@ function buildOriginInfo(
       underlined: true,
       color: "gray",
     },
-  ];
+  ]);
 
   return originInfo;
 }

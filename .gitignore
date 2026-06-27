@@ -73,3 +73,6 @@ public/
 
 # one-click installer workspace
 ghostping/
+
+# 临时文件
+.tmp

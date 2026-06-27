@@ -4,6 +4,12 @@ import dayjs from "dayjs";
 import { spawnSync } from "child_process";
 import { config } from "../config/config_parser";
 
+// 解析命令行参数设置环境变量，保证 logger 和 config 实例化前 NODE_ENV 已正确配置
+const envIndex = process.argv.indexOf("--env");
+if (envIndex !== -1 && process.argv[envIndex + 1]) {
+  process.env.NODE_ENV = process.argv[envIndex + 1];
+}
+
 function ensureUtf8Console() {
   if (process.platform !== "win32") {
     return;
@@ -34,7 +40,7 @@ const pinoConfig = {
   base: {
     pid: false,
   },
-  level: config.server.logLevel || "info",
+  level: process.env.NODE_ENV === "development" ? "debug" : (config.server.logLevel || "info"),
   timestamp: () => `,"time":"${dayjs().format()}"`,
 } as pino.LoggerOptions;
 

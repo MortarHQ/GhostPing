@@ -1,22 +1,23 @@
 {
   "name": "ghostping",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": false,
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "start": "pnpm run start:build && pnpm run start:check-update && pnpm run start:server",
     "start:build": "pnpm run web:build",
-    "start:check-update": "node scripts/check-version-update.mjs",
-    "start:server": "node scripts/run.mjs --env production src/appServer.ts",
-    "dev": "node scripts/run.mjs --env development --watch src/appServer.ts",
+    "start:check-update": "tsx scripts/check-version-update.ts",
+    "start:server": "tsx src/appServer.ts --env production",
+    "dev": "tsx watch --clear-screen=false --exclude data/offset.fn.js src/appServer.ts --env development",
     "web:dev": "vite --config frontend/vite.config.ts",
     "web:build": "vite build --config frontend/vite.config.ts",
     "web:preview": "vite preview --config frontend/vite.config.ts",
-    "mc:ping": "node scripts/run.mjs --env test src/mcClient.ts",
+    "mc:ping": "tsx src/mcClient.ts --env test",
     "test": "pnpm run mc:ping",
-    "release:manifest": "node .github/scripts/generate-version-manifest.mjs",
-    "release:manifest:check": "node .github/scripts/generate-version-manifest.mjs --check"
+    "protocols:update": "tsx scripts/update-protocols.ts",
+    "release:manifest": "tsx .github/scripts/generate-version-manifest.ts",
+    "release:manifest:check": "tsx .github/scripts/generate-version-manifest.ts --check"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

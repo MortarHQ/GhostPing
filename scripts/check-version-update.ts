@@ -26,14 +26,14 @@ const ANSI = {
   red: "\x1b[31m",
 };
 
-function color(text, code) {
+function color(text: string, code: string): string {
   if (!COLOR_ENABLED) {
     return text;
   }
   return `${code}${text}${ANSI.reset}`;
 }
 
-function formatPrefix(level) {
+function formatPrefix(level: "info" | "warn" | "error" | "success"): string {
   const base = color("[update-check]", ANSI.dim);
   if (level === "warn") {
     return `${base} ${color("WARN", ANSI.yellow)}`;
@@ -47,23 +47,30 @@ function formatPrefix(level) {
   return `${base} ${color("INFO", ANSI.cyan)}`;
 }
 
-function logInfo(message) {
+function logInfo(message: string): void {
   console.log(`${formatPrefix("info")} ${message}`);
 }
 
-function logSuccess(message) {
+function logSuccess(message: string): void {
   console.log(`${formatPrefix("success")} ${message}`);
 }
 
-function logWarn(message) {
+function logWarn(message: string): void {
   console.warn(`${formatPrefix("warn")} ${message}`);
 }
 
-function logError(message) {
+function logError(message: string): void {
   console.warn(`${formatPrefix("error")} ${message}`);
 }
 
-function parseVersion(version) {
+interface ParsedVersion {
+  major: number;
+  minor: number;
+  patch: number;
+  suffix: string;
+}
+
+function parseVersion(version: string): ParsedVersion | null {
   const trimmed = String(version || "").trim().replace(/^v/i, "");
   const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+](.+))?$/.exec(trimmed);
   if (!match) {
@@ -77,7 +84,7 @@ function parseVersion(version) {
   };
 }
 
-function compareVersion(a, b) {
+function compareVersion(a: string, b: string): number {
   const av = parseVersion(a);
   const bv = parseVersion(b);
   if (!av || !bv) {
@@ -102,7 +109,7 @@ function compareVersion(a, b) {
   return 0;
 }
 
-function toTag(version) {
+function toTag(version: string): string {
   const text = String(version || "").trim();
   if (!text) {
     return text;
@@ -110,13 +117,18 @@ function toTag(version) {
   return text.startsWith("v") ? text : `v${text}`;
 }
 
-async function readCurrentVersion() {
+async function readCurrentVersion(): Promise<string> {
   const raw = await readFile(packageJsonPath, "utf8");
   const parsed = JSON.parse(raw);
   return String(parsed.version || "").trim();
 }
 
-async function fetchManifest() {
+interface Manifest {
+  latest?: string;
+  [key: string]: unknown;
+}
+
+async function fetchManifest(): Promise<Manifest> {
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();
@@ -133,13 +145,13 @@ async function fetchManifest() {
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
-    return await res.json();
+    return (await res.json()) as Manifest;
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function checkUpdate() {
+async function checkUpdate(): Promise<void> {
   logInfo(`正在检查更新清单：${MANIFEST_URL}`);
   const currentVersion = await readCurrentVersion();
   const manifest = await fetchManifest();
@@ -168,9 +180,10 @@ async function checkUpdate() {
   );
 }
 
-function spawnBackgroundCheck() {
+function spawnBackgroundCheck(): void {
   try {
-    const child = spawn(process.execPath, [__filename, "--run"], {
+    // 直接启动自身，使用 --import tsx 运行 TS 文件
+    const child = spawn(process.execPath, ["--import", "tsx", __filename, "--run"], {
       cwd: repoRoot,
       stdio: "inherit",
       detached: true,
@@ -183,7 +196,7 @@ function spawnBackgroundCheck() {
   }
 }
 
-async function run() {
+async function run(): Promise<void> {
   const background = process.argv.includes("--background");
   if (background) {
     spawnBackgroundCheck();

@@ -41,6 +41,7 @@ function loadConfig(): ParsedConfig {
       logFormat: "combined", // 默认日志格式
       host: "0.0.0.0", // 默认主机
       web_host: "127.0.0.1", // web默认监听地址
+      timeout: "600", // 默认探测超时时间 (毫秒)
     },
   };
 

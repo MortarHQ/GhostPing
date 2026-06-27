@@ -1,10 +1,7 @@
-export const VERSION_TO_PROTOCOL_MAP = {
-  "1.20.4": 765,
-  "1.19.2": 760,
-  "1.18.2": 758,
-  "1.16.5": 762,
-  "1.12.2": 340,
-} as const;
+import protocols from "./protocols.json";
+
+export const VERSION_TO_PROTOCOL_MAP = protocols;
+
 
 export type VERSION = keyof typeof VERSION_TO_PROTOCOL_MAP;
 export type ServerStatus = {

@@ -5,12 +5,18 @@ import process from "node:process";
 
 const semverTagPattern = /^v\d+\.\d+\.\d+$/;
 
-function printUsage() {
+function printUsage(): void {
   console.log("Usage: node .github/scripts/generate-version-manifest.mjs [--check] [--repo <owner/repo>] [--out <path>]");
 }
 
-function parseArgs(argv) {
-  const parsed = {
+interface ParsedArgs {
+  check: boolean;
+  repo: string;
+  out: string;
+}
+
+function parseArgs(argv: string[]): ParsedArgs {
+  const parsed: ParsedArgs = {
     check: false,
     repo: process.env.GITHUB_REPOSITORY || "MortarHQ/GhostPing",
     out: path.join("docs", "releases", "versions.json"),
@@ -50,11 +56,11 @@ function parseArgs(argv) {
   return parsed;
 }
 
-function runGit(args) {
+function runGit(args: string[]): string {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
 
-function getSortedTags() {
+function getSortedTags(): string[] {
   const raw = runGit(["tag", "--list", "--sort=-v:refname"]);
   if (!raw) {
     return [];
@@ -66,17 +72,33 @@ function getSortedTags() {
     .filter((item) => item && semverTagPattern.test(item));
 }
 
-function getTagCommit(tag) {
+function getTagCommit(tag: string): string {
   return runGit(["rev-list", "-n", "1", tag]);
 }
 
-function getTagCommitDate(tag) {
+function getTagCommitDate(tag: string): string {
   return runGit(["show", "-s", "--format=%cI", tag]);
 }
 
-function buildManifest(repo) {
+interface VersionInfo {
+  tag: string;
+  commit: string;
+  zipball: string;
+  tarball: string;
+}
+
+interface Manifest {
+  schemaVersion: number;
+  repository: string;
+  generatedAt: string | null;
+  latest: string | null;
+  tags: string[];
+  versions: Record<string, VersionInfo>;
+}
+
+function buildManifest(repo: string): Manifest {
   const tags = getSortedTags();
-  const versions = {};
+  const versions: Record<string, VersionInfo> = {};
 
   for (const tag of tags) {
     const commit = getTagCommit(tag);
@@ -98,11 +120,11 @@ function buildManifest(repo) {
   };
 }
 
-function renderManifest(manifest) {
+function renderManifest(manifest: Manifest): string {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
-function main() {
+function main(): void {
   const args = parseArgs(process.argv.slice(2));
   const outputPath = path.resolve(process.cwd(), args.out);
   const manifest = buildManifest(args.repo);

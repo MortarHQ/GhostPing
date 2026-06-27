@@ -71,3 +71,42 @@ export function getVersionDisplayName(version: VERSION): string {
 export function getDefaultVersion(): VERSION {
   return "1.16.5";
 }
+
+/**
+ * 将协议号反查为 Minecraft 版本字符串
+ * @param protocol 协议号
+ * @returns 对应的 Minecraft 版本字符串，如果未找到则返回 null
+ */
+export function protocol2Version(protocol: number): VERSION | null {
+  for (const [ver, prot] of Object.entries(VERSION_TO_PROTOCOL_MAP)) {
+    if (prot === protocol) {
+      return ver as VERSION;
+    }
+  }
+  return null;
+}
+
+export interface ChatComponentPart {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underlined?: boolean;
+  color?: string;
+}
+
+export interface ChatComponent {
+  text: string;
+  extra?: ChatComponentPart[];
+}
+
+/**
+ * 编排并构建符合 Minecraft 协议的 Chat Component 结构
+ * @param parts 各个文本分片
+ * @returns 格式化后的 Chat Component 对象
+ */
+export function buildChatComponent(parts: ChatComponentPart[]): ChatComponent {
+  return {
+    text: "",
+    extra: parts,
+  };
+}

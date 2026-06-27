@@ -1,8 +1,9 @@
 import net, { Socket } from "net";
+import dns from "dns";
 import { Buffer } from "buffer";
 import log from "@utils/logger";
 import varint from "varint";
-import { encodeProtocol } from "@utils/protocol-utils";
+import { encodeProtocol, protocol2Version, buildChatComponent } from "@utils/protocol-utils";
 import { config } from "../config/config_parser";
 import { ServerStatus, VERSION } from "@declare/delcare_const";
 import { getServerIcon } from "@utils/image-utils";
@@ -29,8 +30,7 @@ function buildFallbackStatus(protocolVersion: number): ServerStatus {
     }
   }`) as ServerStatus;
 
-  fallback.description = [
-    "",
+  fallback.description = buildChatComponent([
     { text: "Mortar", bold: true, color: "aqua" },
     { text: " 全服在线人数统计", bold: true, color: "gold" },
     {
@@ -39,7 +39,7 @@ function buildFallbackStatus(protocolVersion: number): ServerStatus {
       underlined: true,
       color: "gray",
     },
-  ];
+  ]);
 
   return fallback;
 }
@@ -56,6 +56,8 @@ function hasCompleteVarInt(buffer: Buffer, offset: number): boolean {
 class MinecraftProtocolHandler {
   private socket: Socket;
   private buffer: Buffer = Buffer.alloc(0);
+  private state: "HANDSHAKE" | "STATUS" | "LOGIN" = "HANDSHAKE";
+  private protocolVersion: number = 765; // 默认协议版本，在 Handshake 中更新
 
   constructor(socket: Socket) {
     this.socket = socket;
@@ -116,28 +118,38 @@ class MinecraftProtocolHandler {
     const { length, packetID } = decodePacketID(packet);
 
     log.debug(
-      `收到数据包: ID=${packetID.value}, 长度=${packet.length}, 数据=${packet
-        .toString("hex")
-        .substring(0, 50)}...`
+      `[TCP] 收到数据包: ID=0x${packetID.value.toString(16).padStart(2, "0")}, 长度=${packet.length} 字节, State=${this.state}`
     );
 
-    // 根据包ID分发处理
-    switch (packetID.value) {
-      case 0x01: // Ping请求
-        await this.handlePingRequest(packet);
-        break;
-
-      case 0x00: // Handshake或Status请求
-        if (packet.length === 2) {
-          log.debug("收到Status Request");
-          return; // 不处理空的状态请求，等待后续数据包
-        }
+    if (this.state === "HANDSHAKE") {
+      if (packetID.value === 0x00) {
         await this.handleHandshake(packet);
-        break;
-
-      default:
-        log.warn(`未知数据包类型: ${packetID.value}`);
+      } else {
+        log.warn(`在 HANDSHAKE 状态收到非 0x00 包: 0x${packetID.value.toString(16)}`);
         this.socket.destroy();
+      }
+    } else if (this.state === "STATUS") {
+      if (packetID.value === 0x00) {
+        // Status Request (0x00)
+        log.info(`处理状态查询请求，来自: ${this.socket.remoteAddress}`);
+        await this.handleStatusRequest(this.protocolVersion);
+      } else if (packetID.value === 0x01) {
+        // Ping Request (0x01)
+        await this.handlePingRequest(packet);
+      } else {
+        log.warn(`在 STATUS 状态收到未知包: 0x${packetID.value.toString(16)}`);
+        this.socket.destroy();
+      }
+    } else if (this.state === "LOGIN") {
+      if (packetID.value === 0x00) {
+        // Login Start (0x00)
+        log.info(`收到 Login Start 包，来自: ${this.socket.remoteAddress}`);
+        await this.handleLoginRequest();
+        this.socket.destroy();
+      } else {
+        log.warn(`在 LOGIN 状态收到未知包: 0x${packetID.value.toString(16)}`);
+        this.socket.destroy();
+      }
     }
   }
 
@@ -148,6 +160,9 @@ class MinecraftProtocolHandler {
     );
     // Ping请求只需原样返回数据
     this.socket.write(new Uint8Array(data));
+    log.info(
+      `已向 ${this.socket.remoteAddress}:${this.socket.remotePort} 发送 Ping 响应，数据大小: ${data.length} 字节`
+    );
     this.socket.destroy(); // 完成后关闭连接
   }
 
@@ -201,21 +216,28 @@ class MinecraftProtocolHandler {
 
       const nextState = readVarInt(data, portOffset + 2);
 
-      log.info(
-        `收到Handshake请求，状态值: ${nextState.value}, 地址: ${address}:${port}, 协议版本: ${protocolVersion.value}`
-      );
+      const protocolVal = protocolVersion.value;
+      const mcVersion = protocol2Version(protocolVal);
+      if (mcVersion) {
+        log.info(
+          `收到Handshake请求，状态值: ${nextState.value}, 地址: ${address}:${port}, 协议版本: ${protocolVal} (已识别为 Minecraft ${mcVersion})`
+        );
+      } else {
+        log.warn(
+          `收到Handshake请求，状态值: ${nextState.value}, 地址: ${address}:${port}, 协议版本: ${protocolVal} (未知的协议版本，反查失败)`
+        );
+      }
 
       // 根据状态值处理
       switch (nextState.value) {
         case 0x01: // 状态查询
-          await this.handleStatusRequest(protocolVersion.value);
+          this.state = "STATUS";
           break;
         case 0x02: // 登录请求
-          await this.handleLoginRequest();
-          this.socket.destroy(); // 登录请求处理完后关闭连接
+          this.state = "LOGIN";
           break;
         default:
-          log.warn(`未知状态值: ${nextState.value}`);
+          log.warn(`未知下一状态值: ${nextState.value}`);
           this.socket.destroy();
       }
     } catch (err) {
@@ -226,7 +248,6 @@ class MinecraftProtocolHandler {
 
   // 处理状态查询请求
   private async handleStatusRequest(protocolVersion: number): Promise<void> {
-    log.info(`处理状态查询请求，来自: ${this.socket.remoteAddress}`);
     try {
       // 从API获取服务器列表
       const rawHost =
@@ -266,6 +287,9 @@ class MinecraftProtocolHandler {
       );
 
       this.socket.write(new Uint8Array(responsePacket));
+      log.info(
+        `已向 ${this.socket.remoteAddress} 发送 Status 响应包，数据大小: ${responsePacket.length} 字节`
+      );
     } catch (err) {
       log.error("处理状态查询请求出错:", err);
       this.socket.destroy();
@@ -274,11 +298,13 @@ class MinecraftProtocolHandler {
 
   // 处理登录请求
   private async handleLoginRequest(): Promise<void> {
-    log.info(`处理登录请求，来自: ${this.socket.remoteAddress}`);
     try {
       // 创建断开连接数据包
       const disconnectPacket = createLoginDisconnectPacket(this.socket);
       this.socket.write(new Uint8Array(disconnectPacket));
+      log.info(
+        `已向 ${this.socket.remoteAddress} 发送 Login Disconnect 响应包，数据大小: ${disconnectPacket.length} 字节`
+      );
     } catch (err) {
       log.error("处理登录请求出错:", err);
       this.socket.destroy();
@@ -357,14 +383,38 @@ function getServerStatus(
   serverPort: string,
   version: VERSION = "1.16.5"
 ) {
-  return new Promise<ServerStatus>((resolve, reject) => {
-    log.info(`正在获取 ${serverAddress}:${serverPort} ${version} 服务器状态`);
+  return new Promise<ServerStatus>(async (resolve, reject) => {
+    let targetHost = serverAddress;
+    let targetPort = parseInt(serverPort, 10);
+
+    // 如果是域名且端口是默认的 25565，则尝试解析 SRV 记录
+    const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(serverAddress) || serverAddress.includes(":");
+    if (!isIp && targetPort === 25565) {
+      try {
+        const srvAddress = await new Promise<{ name: string; port: number }[]>((res) => {
+          dns.resolveSrv(`_minecraft._tcp.${serverAddress}`, (err, addresses) => {
+            if (err) res([]);
+            else res(addresses);
+          });
+        });
+        if (srvAddress && srvAddress.length > 0) {
+          const first = srvAddress[0];
+          targetHost = first.name;
+          targetPort = first.port;
+          log.info(`解析 SRV 记录成功: _minecraft._tcp.${serverAddress} -> ${targetHost}:${targetPort}`);
+        }
+      } catch (err) {
+        // 忽略 SRV 解析错误，降级使用默认连接
+      }
+    }
+
+    log.info(`正在获取 ${targetHost}:${targetPort} ${version} 服务器状态`);
     const client = new net.Socket();
 
-    client.connect(parseInt(serverPort, 10), serverAddress, () => {
+    client.connect(targetPort, targetHost, () => {
       const handshakePacket = createHandshakePacket(
-        serverAddress,
-        parseInt(serverPort, 10),
+        serverAddress, // 握手包中的 host 依然填原始域名（供Bungee/Velocity虚拟主机路由）
+        targetPort,
         version
       );
       client.write(new Uint8Array(handshakePacket));
@@ -403,7 +453,12 @@ function getServerStatus(
       reject(msg);
     });
 
-    client.setTimeout(1000, () => {
+    const timeoutMs = config.server.timeout
+      ? Number.parseInt(config.server.timeout, 10)
+      : 600;
+    const finalTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 600;
+
+    client.setTimeout(finalTimeout, () => {
       client.destroy();
       const msg = `${serverAddress}:${serverPort} ${version} 连接超时，跳过查询！`;
       reject(msg);

@@ -1,6 +1,6 @@
 {
   "name": "ghostping",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": false,
   "type": "module",
   "packageManager": "pnpm@11.9.0",
